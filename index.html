@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Centralized Digital Health Records - Anytime, Anywhere. Secure health record storage for patients, doctors, and hospitals.">
+    <title>Med Buddy - Centralized Digital Health Records</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Color Palette */
+            --primary-color: #0066CC;
+            /* Deep Medical Blue */
+            --primary-hover: #004C99;
+            --secondary-color: #E6F4FF;
+            /* Light Blue Background */
+            --accent-color: #00D2D3;
+            /* Fresh Teal for accents */
+            --text-dark: #1F2937;
+            --text-light: #6B7280;
+            --white: #FFFFFF;
+            --card-bg: #FFFFFF;
+            --border-color: #E5E7EB;
+
+            /* Spacing & Layout */
+            --container-padding: 5%;
+            --border-radius: 12px;
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background-color: var(--white);
+            color: var(--text-dark);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* --- Header --- */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem var(--container-padding);
+            background-color: var(--white);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--primary-color);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            letter-spacing: -0.5px;
+        }
+
+        .logo span {
+            color: var(--text-dark);
+        }
+
+        nav ul {
+            display: flex;
+            list-style: none;
+            gap: 2.5rem;
+        }
+
+        nav a {
+            text-decoration: none;
+            color: var(--text-dark);
+            font-weight: 500;
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+
+        nav a:hover {
+            color: var(--primary-color);
+        }
+
+        .auth-buttons {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--border-radius);
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: var(--transition);
+            display: inline-block;
+        }
+
+        .btn-text {
+            color: var(--primary-color);
+            background: transparent;
+            font-weight: 600;
+            padding: 0.75rem 1rem;
+        }
+
+        .btn-text:hover {
+            color: var(--primary-hover);
+            background-color: var(--secondary-color);
+            border-radius: var(--border-radius);
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: var(--white);
+            border: 2px solid var(--primary-color);
+            box-shadow: 0 4px 6px rgba(0, 102, 204, 0.2);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+            border-color: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 102, 204, 0.3);
+        }
+
+        .btn-outline {
+            border: 2px solid var(--primary-color);
+            color: var(--primary-color);
+            background: var(--white);
+        }
+
+        .btn-outline:hover {
+            background-color: var(--secondary-color);
+            transform: translateY(-2px);
+        }
+
+        /* --- Hero Section --- */
+        .hero {
+            padding: 6rem var(--container-padding);
+            text-align: center;
+            background: linear-gradient(135deg, var(--secondary-color) 0%, #FFFFFF 100%);
+            min-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Decorative Background Elements */
+        .hero::before {
+            content: '';
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(0, 210, 211, 0.1) 0%, rgba(255, 255, 255, 0) 70%);
+            top: -100px;
+            right: -200px;
+            z-index: 1;
+            border-radius: 50%;
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(0, 102, 204, 0.05) 0%, rgba(255, 255, 255, 0) 70%);
+            bottom: -50px;
+            left: -100px;
+            z-index: 1;
+            border-radius: 50%;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            max-width: 900px;
+        }
+
+        .hero h1 {
+            font-size: 4rem;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(to right, var(--primary-color), var(--text-dark));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+            letter-spacing: -1px;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--text-light);
+            margin-bottom: 3rem;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .hero-title-accent {
+            color: var(--primary-color);
+        }
+
+        .hero-cta {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .hero-cta .btn {
+            padding: 1rem 2.5rem;
+            font-size: 1.1rem;
+        }
+
+        /* --- Who Is This For Section --- */
+        .user-types {
+            padding: 6rem var(--container-padding);
+            background-color: var(--white);
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .section-header h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 1rem;
+        }
+
+        .cards-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2.5rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 2.5rem;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+            border-color: var(--primary-color);
+        }
+
+        /* Top colored bar for card */
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background: var(--primary-color);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .card-icon-wrapper {
+            width: 60px;
+            height: 60px;
+            background-color: var(--secondary-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            font-size: 1.8rem;
+        }
+
+        .card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-dark);
+            font-weight: 700;
+        }
+
+        .card ul {
+            list-style: none;
+        }
+
+        .card li {
+            margin-bottom: 0.75rem;
+            color: var(--text-light);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 1rem;
+        }
+
+        .card li::before {
+            content: "✓";
+            color: var(--primary-color);
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 900px) {
+            .hero h1 {
+                font-size: 3rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            nav ul {
+                gap: 1.5rem;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero-cta {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .hero-cta .btn {
+                width: 100%;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Header Navigation -->
+    <header>
+        <a href="#" class="logo">
+            <!-- Simple SVG Logo or Icon -->
+            <span>Med Buddy</span>
+        </a>
+
+        <nav>
+            <ul>
+                <li><a href="#home">Home</a></li>
+                <li><a href="#about">About</a></li>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+        </nav>
+
+        <div class="auth-buttons">
+            <a href="#login" class="btn-text">Login</a>
+            <a href="#register" class="btn-text">Register</a>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero" id="home">
+        <div class="hero-content">
+            <h1>Centralized Digital Health Records <br> <span class="hero-title-accent">Anytime, Anywhere</span></h1>
+            <p>Upload medical records, book doctor appointments, and get AI-powered health summaries in one secure
+                platform.</p>
+
+            <div class="hero-cta">
+                <a href="#register" class="btn btn-primary">Register as Patient</a>
+                <a href="#doctor-login" class="btn btn-outline">Doctor / Hospital Login</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- User Types / Who Is This For -->
+    <section class="user-types" id="about">
+        <div class="section-header">
+            <h2>Who Is This For?</h2>
+            <p style="color: var(--text-light);">Show that your platform supports everyone.</p>
+        </div>
+
+        <div class="cards-container">
+            <!-- Patients -->
+            <div class="card">
+                <div class="card-icon-wrapper">
+                    🧑‍⚕️
+                </div>
+                <h3>Patients</h3>
+                <ul>
+                    <li>Secure health record storage</li>
+                    <li>Upload reports & prescriptions</li>
+                    <li>Book appointments</li>
+                    <li>View AI health summary</li>
+                </ul>
+            </div>
+
+            <!-- Hospitals & Doctors -->
+            <div class="card">
+                <div class="card-icon-wrapper">
+                    🏥
+                </div>
+                <h3>Hospitals & Doctors</h3>
+                <ul>
+                    <li>Access patient records using unique ID</li>
+                    <li>Centralized patient data</li>
+                    <li>Faster diagnosis</li>
+                </ul>
+            </div>
+
+            <!-- Admin / Healthcare System -->
+            <div class="card">
+                <div class="card-icon-wrapper">
+                    🛡️
+                </div>
+                <h3>Admin / Healthcare System</h3>
+                <ul>
+                    <li>Manage doctors & patients</li>
+                    <li>Maintain centralized medical database</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+</body>
+
+</html>
