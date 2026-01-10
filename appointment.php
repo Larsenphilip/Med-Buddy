@@ -111,25 +111,29 @@
         /* --- Page Layout --- */
         .page-header {
             background: linear-gradient(135deg, #F8FAFC 0%, var(--secondary-color) 100%);
-            padding: 4rem 5%;
+            padding: 2rem 5%;
             margin-bottom: 2rem;
-            display: flex;
-            justify-content: center; /* Center the content */
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
             align-items: center;
-            position: relative;
+            gap: 2rem;
+            min-height: 250px;
         }
 
         .filter-container {
-            position: absolute;
-            left: 5%;
-            top: 50%;
-            transform: translateY(-50%);
+            /* Positioned in the first column by default */
+            grid-column: 1;
             z-index: 10;
+            width: 100%;
+            display: flex;
+            justify-content: flex-start;
         }
 
         .header-text {
+            grid-column: 2;
             text-align: center;
             max-width: 800px;
+            width: 100%;
         }
 
         /* Custom Dropdown Styles */
@@ -211,27 +215,35 @@
 
         /* Responsive Adjustments for Filter */
         /* Responsive Adjustments for Filter */
-        @media (max-width: 900px) {
+        @media (max-width: 1024px) {
             .page-header {
+                display: flex;
                 flex-direction: column;
                 gap: 1.5rem;
-                padding-top: 4rem;
+                padding-top: 3rem;
+                padding-bottom: 3rem;
                 text-align: center;
             }
             .filter-container {
                 position: relative;
-                left: auto;
-                top: auto;
-                transform: none;
                 width: 100%;
                 order: 2; /* Filter below text */
+                justify-content: center;
             }
             .header-text {
+                grid-column: auto;
                 text-align: center;
                 order: 1; /* Text on top */
             }
             .custom-dropdown {
                 width: 100%;
+                max-width: 320px;
+                margin: 0 auto;
+            }
+
+            .dropdown-selected {
+                padding: 0.6rem 1rem;
+                font-size: 0.9rem;
             }
         }
 
@@ -570,6 +582,7 @@
             width: 100%;
             transition: all 0.3s ease;
             box-shadow: 0 4px 6px rgba(0, 102, 204, 0.2);
+            margin-top: auto;
         }
 
 
@@ -587,15 +600,15 @@
         <nav>
             <ul>
                 <li><a href="index.html#home">Home</a></li>
-                <li><a href="index.html#about">About</a></li>
-                <li><a href="index.html#features">Features</a></li>
+                 <li><a href="#about">About Us</a></li>
+                <li><a href="appointment.php">Appointment</a></li>
                 <li><a href="index.html#contact">Contact</a></li>
             </ul>
         </nav>
 
         <div class="auth-buttons">
             <a href="index.html#login" class="btn-text">Login</a>
-            <a href="index.html#register" class="btn-text">Register</a>
+           
         </div>
     </header>
 
@@ -882,6 +895,7 @@
             document.getElementById("doctorId").value = id;
             document.getElementById("modalDeviceName").innerText = "Booking with " + name;
             modal.style.display = "block";
+            document.body.style.overflow = 'hidden'; // Lock background scroll
             // Reset form
             form.reset();
             timeSlotsContainer.innerHTML = '<p style="color: #666; font-size: 0.9rem;">Select a date to see available slots</p>';
@@ -890,6 +904,7 @@
 
         function closeBookingModal() {
             modal.style.display = "none";
+            document.body.style.overflow = ''; // Unlock background scroll
         }
 
         window.onclick = function(event) {

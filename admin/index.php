@@ -43,7 +43,7 @@ if (isset($_GET['action']) && isset($_GET['id'])) {
     $update_appt = $conn->prepare("UPDATE appointments SET status = ? WHERE id = ? AND doctor_id = ?");
     $update_appt->bind_param("sii", $status, $appt_id, $doctor_id);
     $update_appt->execute();
-    header("Location: doc.php"); // Refresh to clear query params
+    header("Location: index.php"); // Refresh to clear query params
     exit;
 }
 
