@@ -11,28 +11,32 @@ include '../db_config.php';
 $doctor_id = $_SESSION['doctor_id'];
 $doctor_name = $_SESSION['doctor_name'];
 
-// Handle Availability Update
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_availability'])) {
-    $day = $_POST['day'];
-    $start = $_POST['start_time'];
-    $end = $_POST['end_time'];
+// Handle Bulk Availability Update
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['save_all_availability'])) {
+    $days_data = $_POST['days']; // Array of day settings
     
-    // Check if entry exists
-    $check = $conn->prepare("SELECT id FROM doctor_availability WHERE doctor_id = ? AND day_of_week = ?");
-    $check->bind_param("is", $doctor_id, $day);
-    $check->execute();
-    $res = $check->get_result();
+    foreach ($days_data as $day => $data) {
+        $is_available = isset($data['is_available']) ? 1 : 0;
+        $start = $data['start_time'];
+        $end = $data['end_time'];
+        
+        // Check if entry exists
+        $check = $conn->prepare("SELECT id FROM doctor_availability WHERE doctor_id = ? AND day_of_week = ?");
+        $check->bind_param("is", $doctor_id, $day);
+        $check->execute();
+        $res = $check->get_result();
 
-    if ($res->num_rows > 0) {
-        $update = $conn->prepare("UPDATE doctor_availability SET start_time = ?, end_time = ? WHERE doctor_id = ? AND day_of_week = ?");
-        $update->bind_param("ssis", $start, $end, $doctor_id, $day);
-        $update->execute();
-    } else {
-        $insert = $conn->prepare("INSERT INTO doctor_availability (doctor_id, day_of_week, start_time, end_time) VALUES (?, ?, ?, ?)");
-        $insert->bind_param("isss", $doctor_id, $day, $start, $end);
-        $insert->execute();
+        if ($res->num_rows > 0) {
+            $update = $conn->prepare("UPDATE doctor_availability SET start_time = ?, end_time = ?, availability = ? WHERE doctor_id = ? AND day_of_week = ?");
+            $update->bind_param("ssiis", $start, $end, $is_available, $doctor_id, $day);
+            $update->execute();
+        } else {
+            $insert = $conn->prepare("INSERT INTO doctor_availability (doctor_id, day_of_week, start_time, end_time, availability) VALUES (?, ?, ?, ?, ?)");
+            $insert->bind_param("isssi", $doctor_id, $day, $start, $end, $is_available);
+            $insert->execute();
+        }
     }
-    $success_msg = "Availability updated for $day!";
+    $success_msg = "All availability settings updated successfully!";
 }
 
 // Handle Appointment Status Update
@@ -238,6 +242,113 @@ $days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Su
             border-radius: 6px;
             margin-bottom: 1rem;
         }
+
+        /* Toggle Switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .switch input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            -webkit-transition: .4s;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            -webkit-transition: .4s;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--primary-color);
+        }
+
+        input:focus + .slider {
+            box-shadow: 0 0 1px var(--primary-color);
+        }
+
+        input:checked + .slider:before {
+            -webkit-transform: translateX(26px);
+            -ms-transform: translateX(26px);
+            transform: translateX(26px);
+        }
+
+        .day-label {
+            width: 120px;
+            font-weight: 600;
+        }
+
+        .time-inputs {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            transition: opacity 0.3s;
+        }
+
+        .time-inputs.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .availability-table {
+            width: 100%;
+            margin-bottom: 2rem;
+        }
+
+        .availability-table td {
+            padding: 1.25rem 1rem;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .save-all-container {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #eee;
+        }
+
+        .btn-save-all {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 1rem 2.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 102, 204, 0.2);
+            transition: all 0.3s;
+        }
+
+        .btn-save-all:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 102, 204, 0.3);
+        }
     </style>
 </head>
 <body>
@@ -299,27 +410,57 @@ $days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Su
         <!-- Availability Section -->
         <div id="availability" class="card">
             <h2>Manage Weekly Availability</h2>
-            <p style="margin-bottom: 1.5rem; color: #666;">Set your start and end working hours for each day.</p>
+            <p style="margin-bottom: 2rem; color: #666;">Toggle your availability and set working hours for the entire week.</p>
             
-            <?php foreach($days as $day): 
-                $start = isset($availability[$day]) ? $availability[$day]['start_time'] : '';
-                $end = isset($availability[$day]) ? $availability[$day]['end_time'] : '';
-            ?>
-            <form method="POST" class="availability-row">
-                <input type="hidden" name="update_availability" value="1">
-                <input type="hidden" name="day" value="<?php echo $day; ?>">
+            <form method="POST">
+                <table class="availability-table">
+                    <tbody>
+                        <?php foreach($days as $day): 
+                            $avail_data = isset($availability[$day]) ? $availability[$day] : null;
+                            $is_avail = ($avail_data && isset($avail_data['availability'])) ? $avail_data['availability'] : 0;
+                            $start = $avail_data ? $avail_data['start_time'] : '09:00';
+                            $end = $avail_data ? $avail_data['end_time'] : '17:00';
+                        ?>
+                        <tr>
+                            <td class="day-label"><?php echo $day; ?></td>
+                            <td style="width: 80px;">
+                                <label class="switch">
+                                    <input type="checkbox" name="days[<?php echo $day; ?>][is_available]" 
+                                           onchange="toggleDayRow(this, '<?php echo $day; ?>')"
+                                           <?php echo $is_avail ? 'checked' : ''; ?>>
+                                    <span class="slider"></span>
+                                </label>
+                            </td>
+                            <td>
+                                <div class="time-inputs <?php echo $is_avail ? '' : 'disabled'; ?>" id="inputs-<?php echo $day; ?>">
+                                    <label>From:</label>
+                                    <input type="time" name="days[<?php echo $day; ?>][start_time]" value="<?php echo date('H:i', strtotime($start)); ?>">
+                                    <label>To:</label>
+                                    <input type="time" name="days[<?php echo $day; ?>][end_time]" value="<?php echo date('H:i', strtotime($end)); ?>">
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
                 
-                <h4><?php echo $day; ?></h4>
-                <label>Start:</label>
-                <input type="time" name="start_time" value="<?php echo $start; ?>" required>
-                <label>End:</label>
-                <input type="time" name="end_time" value="<?php echo $end; ?>" required>
-                
-                <button type="submit" class="btn-save">Save</button>
+                <div class="save-all-container">
+                    <button type="submit" name="save_all_availability" class="btn-save-all">Save Weekly Schedule</button>
+                </div>
             </form>
-            <?php endforeach; ?>
         </div>
     </div>
+
+    <script>
+        function toggleDayRow(checkbox, day) {
+            const inputs = document.getElementById('inputs-' + day);
+            if (checkbox.checked) {
+                inputs.classList.remove('disabled');
+            } else {
+                inputs.classList.add('disabled');
+            }
+        }
+    </script>
 
 </body>
 </html>

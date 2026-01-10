@@ -82,3 +82,13 @@ INSERT INTO doctor_availability (doctor_id, day_of_week, start_time, end_time)
 SELECT id, 'Thursday', '09:00:00', '17:00:00' FROM doctors;
 INSERT INTO doctor_availability (doctor_id, day_of_week, start_time, end_time) 
 SELECT id, 'Friday', '09:00:00', '17:00:00' FROM doctors;
+
+-- Patients Table
+CREATE TABLE IF NOT EXISTS patients (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    patient_id VARCHAR(50) NOT NULL UNIQUE,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    phone_number VARCHAR(20) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

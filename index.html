@@ -13,8 +13,9 @@
             /* Color Palette */
             --primary-color: #0066CC;
             /* Deep Medical Blue */
-             --primary-light: #3D6AB8;
+            --primary-light: #3D6AB8;
             --secondary-color: #E6F4FF;
+            --primary-hover: #004499;
             /* Light Blue Background */
             --accent-color: #00D2D3;
             /* Fresh Teal for accents */
@@ -361,6 +362,186 @@
                 text-align: center;
             }
         }
+
+        /* --- Authentication Modal --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .auth-modal {
+            background: var(--white);
+            width: 90%;
+            max-width: 450px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            transform: translateY(20px);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-overlay.active .auth-modal {
+            transform: translateY(0);
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 1.5rem;
+            color: var(--text-light);
+            cursor: pointer;
+            background: none;
+            border: none;
+            z-index: 10;
+            transition: color 0.3s;
+        }
+
+        .modal-close:hover {
+            color: var(--text-dark);
+        }
+
+        .auth-tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .auth-tab {
+            flex: 1;
+            padding: 1.25rem;
+            font-weight: 600;
+            color: var(--text-light);
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 1rem;
+            position: relative;
+        }
+
+        .auth-tab.active {
+            color: var(--primary-color);
+            background: var(--white);
+        }
+
+        .auth-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: var(--primary-color);
+        }
+
+        .auth-body {
+            padding: 2rem;
+        }
+
+        .auth-form {
+            display: none;
+        }
+
+        .auth-form.active {
+            display: block;
+            animation: fadeIn 0.4s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-dark);
+            font-weight: 600;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.85rem 1rem;
+            border: 1px solid var(--border-color);
+            background: #F9FAFB;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: var(--transition);
+            outline: none;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-color);
+            background: var(--white);
+            box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1);
+        }
+
+        .form-control.error {
+            border-color: #ef4444;
+            background: #fff5f5;
+        }
+
+        .error-msg {
+            color: #ef4444;
+            font-size: 0.8rem;
+            margin-top: 0.35rem;
+            display: none;
+        }
+
+        .btn-full {
+            width: 100%;
+            margin-top: 1rem;
+            justify-content: center;
+        }
+
+        .form-footer {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+            color: var(--text-light);
+        }
+
+        .form-footer a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .form-footer a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 
@@ -383,8 +564,8 @@
         </nav>
 
         <div class="auth-buttons">
-            <a href="#login" class="btn-text">Login</a>
-         
+            <a href="javascript:void(0)" onclick="openModal('login')" class="btn-text">Login</a>
+
         </div>
     </header>
 
@@ -396,7 +577,8 @@
                 platform.</p>
 
             <div class="hero-cta">
-                <a href="#register" class="btn btn-primary">Register as Patient</a>
+                <a href="javascript:void(0)" onclick="openModal('register')" class="btn btn-primary">Register as
+                    Patient</a>
                 <a href="./admin" class="btn btn-outline">Doctor / Hospital Login</a>
             </div>
         </div>
@@ -451,6 +633,284 @@
         </div>
     </section>
 
+    <!-- Authentication Modal -->
+    <div class="modal-overlay" id="authModal">
+        <div class="auth-modal">
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+
+            <div class="auth-tabs">
+                <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Login</button>
+                <button class="auth-tab" id="tab-register" onclick="switchTab('register')">Register</button>
+            </div>
+
+            <div class="auth-body">
+                <!-- Login Form -->
+                <div class="auth-form active" id="form-login">
+                    <form id="loginFormTag">
+                        <div class="form-group">
+                            <label for="login-email">Email or Patient ID</label>
+                            <input type="text" id="login-email" class="form-control"
+                                placeholder="Enter your email or ID" required>
+                            <div class="error-msg"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="login-pass">Password</label>
+                            <input type="password" id="login-pass" class="form-control"
+                                placeholder="Enter your password" required>
+                            <div class="error-msg"></div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-full">Login to Dashboard</button>
+
+                        <div class="form-footer">
+                            <p>Don't have an account? <a href="#" onclick="switchTab('register')">Register here</a></p>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Register Form -->
+                <div class="auth-form" id="form-register">
+                    <form id="registerFormTag">
+                        <div class="form-group">
+                            <label for="reg-email">Email Address</label>
+                            <input type="email" id="reg-email" class="form-control" placeholder="your@email.com"
+                                required>
+                            <div class="error-msg"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="reg-phone">Phone Number</label>
+                            <input type="tel" id="reg-phone" class="form-control" placeholder="9876543210" required>
+                            <div class="error-msg"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="reg-pass">Password</label>
+                            <input type="password" id="reg-pass" class="form-control" placeholder="Create a password"
+                                required>
+                            <div class="error-msg"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="reg-confirm-pass">Re-enter Password</label>
+                            <input type="password" id="reg-confirm-pass" class="form-control"
+                                placeholder="Confirm your password" required>
+                            <div class="error-msg"></div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-full">Create Account</button>
+
+                        <div class="form-footer">
+                            <p>Already have an account? <a href="#" onclick="switchTab('login')">Login here</a></p>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Modal Logic
+        const modalOverlay = document.getElementById('authModal');
+        const loginTab = document.getElementById('tab-login');
+        const registerTab = document.getElementById('tab-register');
+        const loginForm = document.getElementById('form-login');
+        const registerForm = document.getElementById('form-register');
+
+        function openModal(type) {
+            modalOverlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            if (type === 'register') {
+                switchTab('register');
+            } else {
+                switchTab('login');
+            }
+        }
+
+        function closeModal() {
+            modalOverlay.classList.remove('active');
+            document.body.style.overflow = '';
+            // Reset forms
+            document.getElementById('loginFormTag').reset();
+            document.getElementById('registerFormTag').reset();
+            document.querySelectorAll('.error-msg').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.form-control').forEach(el => el.classList.remove('error'));
+        }
+
+        function switchTab(tab) {
+            if (tab === 'login') {
+                loginTab.classList.add('active');
+                registerTab.classList.remove('active');
+                loginForm.classList.add('active');
+                registerForm.classList.remove('active');
+            } else {
+                loginTab.classList.remove('active');
+                registerTab.classList.add('active');
+                loginForm.classList.remove('active');
+                registerForm.classList.add('active');
+            }
+        }
+
+        // Close on outside click
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) closeModal();
+        });
+
+        // Error helper
+        function showError(input, message) {
+            const formGroup = input.closest('.form-group');
+            input.classList.add('error');
+            const errorDiv = formGroup.querySelector('.error-msg');
+            errorDiv.innerText = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function clearErrors() {
+            document.querySelectorAll('.error-msg').style.display = 'none';
+            document.querySelectorAll('.form-control').classList.remove('error');
+        }
+
+        // Generate Unique Patient ID
+        function generatePatientID() {
+            const year = new Date().getFullYear();
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            const nums = '0123456789';
+
+            // Generate 3 random letters
+            let randomChars = '';
+            for (let i = 0; i < 3; i++) {
+                randomChars += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+
+            // Generate 3 random numbers
+            let randomNums = '';
+            for (let i = 0; i < 3; i++) {
+                randomNums += nums.charAt(Math.floor(Math.random() * nums.length));
+            }
+
+            // Mix them
+            let combined = (randomChars + randomNums).split('');
+            // Fisher-Yates shuffle
+            for (let i = combined.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [combined[i], combined[j]] = [combined[j], combined[i]];
+            }
+
+            return `PAT-${year}-${combined.join('')}`;
+        }
+
+        // Registration Handler
+        document.getElementById('registerFormTag').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const emailInput = document.getElementById('reg-email');
+            const phoneInput = document.getElementById('reg-phone');
+            const passInput = document.getElementById('reg-pass');
+            const confirmPassInput = document.getElementById('reg-confirm-pass');
+
+            // Clear previous errors
+            document.querySelectorAll('.error-msg').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.form-control').forEach(el => el.classList.remove('error'));
+
+            let isValid = true;
+
+            // Email Validation
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(emailInput.value.trim())) {
+                showError(emailInput, 'Please enter a valid email address.');
+                isValid = false;
+            }
+
+            // Phone Validation (basic 10 digit)
+            const phone = phoneInput.value.replace(/[^0-9]/g, '');
+            if (phone.length < 10) {
+                showError(phoneInput, 'Please enter a valid phone number (at least 10 digits).');
+                isValid = false;
+            }
+
+            // Password Validation
+            if (passInput.value.length < 6) {
+                showError(passInput, 'Password must be at least 6 characters.');
+                isValid = false;
+            }
+
+            // Match Validation
+            if (passInput.value !== confirmPassInput.value) {
+                showError(confirmPassInput, 'Passwords do not match.');
+                isValid = false;
+            }
+
+            if (isValid) {
+                const patientID = generatePatientID();
+                const formData = {
+                    email: emailInput.value.trim(),
+                    phone: phone,
+                    password: passInput.value,
+                    patientID: patientID
+                };
+
+                fetch('register_patient.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert(`Registration Successful!\n\nYour Unique Patient ID: ${patientID}\n\nPlease save this ID for future login.`);
+                            // Switch to Login
+                            switchTab('login');
+                            document.getElementById('login-email').value = formData.email; // Auto-fill
+                            document.getElementById('registerFormTag').reset();
+                        } else {
+                            showError(emailInput, data.message || 'Registration failed.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showError(emailInput, 'An error occurred. Please try again.');
+                    });
+            }
+        });
+
+        // Login Handler
+        document.getElementById('loginFormTag').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const loginInput = document.getElementById('login-email');
+            const passInput = document.getElementById('login-pass');
+
+            const loginVal = loginInput.value.trim();
+            const passVal = passInput.value;
+
+            fetch('login_patient.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    loginId: loginVal,
+                    password: passVal
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = 'patients.php';
+                    } else {
+                        showError(passInput, data.message || 'Invalid email/ID or password.');
+                        loginInput.classList.add('error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showError(passInput, 'An error occurred. Please try again.');
+                });
+        });
+    </script>
 </body>
 
 </html>
