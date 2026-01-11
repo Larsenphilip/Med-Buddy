@@ -18,7 +18,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $doctor = $result->fetch_assoc();
         $_SESSION['doctor_id'] = $doctor['id'];
         $_SESSION['doctor_name'] = $doctor['name'];
-        header("Location: admin/doc.php");
+        header("Location: admin/index.php");
         exit;
     } else {
         $error = "Invalid email or password";

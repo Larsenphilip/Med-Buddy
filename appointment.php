@@ -111,25 +111,29 @@
         /* --- Page Layout --- */
         .page-header {
             background: linear-gradient(135deg, #F8FAFC 0%, var(--secondary-color) 100%);
-            padding: 4rem 5%;
+            padding: 2rem 5%;
             margin-bottom: 2rem;
-            display: flex;
-            justify-content: center; /* Center the content */
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
             align-items: center;
-            position: relative;
+            gap: 2rem;
+            min-height: 250px;
         }
 
         .filter-container {
-            position: absolute;
-            left: 5%;
-            top: 50%;
-            transform: translateY(-50%);
+            /* Positioned in the first column by default */
+            grid-column: 1;
             z-index: 10;
+            width: 100%;
+            display: flex;
+            justify-content: flex-start;
         }
 
         .header-text {
+            grid-column: 2;
             text-align: center;
             max-width: 800px;
+            width: 100%;
         }
 
         /* Custom Dropdown Styles */
@@ -211,27 +215,35 @@
 
         /* Responsive Adjustments for Filter */
         /* Responsive Adjustments for Filter */
-        @media (max-width: 900px) {
+        @media (max-width: 1024px) {
             .page-header {
+                display: flex;
                 flex-direction: column;
                 gap: 1.5rem;
-                padding-top: 4rem;
+                padding-top: 3rem;
+                padding-bottom: 3rem;
                 text-align: center;
             }
             .filter-container {
                 position: relative;
-                left: auto;
-                top: auto;
-                transform: none;
                 width: 100%;
                 order: 2; /* Filter below text */
+                justify-content: center;
             }
             .header-text {
+                grid-column: auto;
                 text-align: center;
                 order: 1; /* Text on top */
             }
             .custom-dropdown {
                 width: 100%;
+                max-width: 320px;
+                margin: 0 auto;
+            }
+
+            .dropdown-selected {
+                padding: 0.6rem 1rem;
+                font-size: 0.9rem;
             }
         }
 
@@ -376,19 +388,29 @@
 
         .modal-content {
             background-color: var(--white);
-            margin: 5% auto;
-            padding: 2rem;
-            border: 1px solid #888;
-            width: 90%;
+            margin: 2vh auto; /* Reduced top margin */
+            padding: 1.5rem; /* Reduced padding */
+            border: none;
+            width: 95%;
             max-width: 500px;
-            border-radius: var(--border-radius);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-            animation: fadeIn 0.3s;
+            max-height: 95vh; /* Ensure it fits in screen */
+            overflow-y: auto; /* Scrollable if needed */
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            animation: modalFadeIn 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+            position: relative;
+            scrollbar-width: none; /* Hide scrollbar for cleaner look */
+        }
+        .modal-content::-webkit-scrollbar { display: none; }
+
+        @keyframes modalFadeIn {
+            from {opacity: 0; transform: translateY(20px);}
+            to {opacity: 1; transform: translateY(0);}
         }
 
         @keyframes fadeIn {
-            from {opacity: 0; transform: translateY(-20px);}
-            to {opacity: 1; transform: translateY(0);}
+            from {opacity: 0; transform: translateY(-60%);}
+            to {opacity: 1; transform: translateY(-50%);}
         }
 
         .close {
@@ -407,7 +429,7 @@
         }
 
         .form-group {
-            margin-bottom: 1rem;
+            margin-bottom: 0.5rem;
         }
 
         .form-group label {
@@ -472,6 +494,86 @@
         #availability-message {
             margin-top: 10px;
             font-size: 0.9rem;
+        }
+
+        /* --- Alarm Clock Style Picker --- */
+        .picker-wrapper {
+            margin-bottom: 1rem;
+        }
+        
+        .picker-labels {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .picker-label {
+            flex: 1;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .picker-container {
+            display: flex;
+            justify-content: space-between;
+            height: 140px; /* Reduced height */
+            background: #f8fafc;
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            mask-image: linear-gradient(to bottom, transparent, black 20%, black 80%, transparent);
+            -webkit-mask-image: linear-gradient(to bottom, transparent, black 20%, black 80%, transparent);
+        }
+
+        .picker-column {
+            flex: 1;
+            overflow-y: scroll;
+            scroll-snap-type: y mandatory;
+            text-align: center;
+            padding-top: 50px; /* (140 - 40) / 2 */
+            padding-bottom: 50px;
+            scrollbar-width: none;
+            position: relative;
+            z-index: 2;
+        }
+        .picker-column::-webkit-scrollbar { display: none; }
+
+        .picker-item {
+            height: 40px;
+            line-height: 40px;
+            scroll-snap-align: center;
+            font-size: 1rem;
+            color: var(--text-light);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .picker-item.active-item {
+            color: var(--primary-color);
+            font-weight: 700;
+            font-size: 1.15rem;
+            transform: scale(1.1);
+        }
+
+        .picker-highlight {
+            position: absolute;
+            top: 50%;
+            left: 10px;
+            right: 10px;
+            height: 40px;
+            transform: translateY(-50%);
+            border-top: 1px solid var(--primary-color);
+            border-bottom: 1px solid var(--primary-color);
+            background-color: rgba(0, 102, 204, 0.05);
+            border-radius: 8px;
+            pointer-events: none;
+            z-index: 1;
         }
 
         /* Mobile Responsiveness */
@@ -570,6 +672,7 @@
             width: 100%;
             transition: all 0.3s ease;
             box-shadow: 0 4px 6px rgba(0, 102, 204, 0.2);
+            margin-top: auto;
         }
 
 
@@ -587,15 +690,15 @@
         <nav>
             <ul>
                 <li><a href="index.html#home">Home</a></li>
-                <li><a href="index.html#about">About</a></li>
-                <li><a href="index.html#features">Features</a></li>
+                 <li><a href="#about">About Us</a></li>
+                <li><a href="appointment.php">Appointment</a></li>
                 <li><a href="index.html#contact">Contact</a></li>
             </ul>
         </nav>
 
         <div class="auth-buttons">
             <a href="index.html#login" class="btn-text">Login</a>
-            <a href="index.html#register" class="btn-text">Register</a>
+           
         </div>
     </header>
 
@@ -794,28 +897,35 @@
                     <input type="text" id="name" name="name" required>
                 </div>
 
+         
                 <div class="form-group">
-                    <label for="email">Email</label>
+                    <label for="email">Email Address</label>
                     <input type="email" id="email" name="email" required>
                 </div>
 
-                <div class="form-group">
+               <div class="form-group">
                     <label for="phone">Phone Number</label>
                     <input type="tel" id="phone" name="phone" required>
                 </div>
-
-                <div class="form-group">
-                    <label for="date">Preferred Date</label>
-                    <input type="date" id="date" name="date" required onchange="checkAvailability()">
-                </div>
-
-                <div class="form-group">
-                    <label>Available Time Slots</label>
-                    <div id="timeSlotsContainer" class="time-slots">
-                        <p style="color: #666; font-size: 0.9rem;">Select a date to see available slots</p>
+    
+                <div class="picker-wrapper">
+                    <div class="picker-labels">
+                        <div class="picker-label">Date</div>
+                        <div class="picker-label">Time</div>
                     </div>
-                    <input type="hidden" id="selectedTime" name="time">
-                    <p id="availability-message"></p>
+                    <div class="picker-container">
+                        <div class="picker-highlight"></div>
+                        <div class="picker-column" id="dateColumn">
+                            <!-- Dates populated by JS -->
+                        </div>
+                        <div class="picker-column" id="timeColumn">
+                            <div class="picker-item">Select Date</div>
+                        </div>
+                    </div>
+                    
+                    <input type="hidden" id="date" name="date" required>
+                    <input type="hidden" id="selectedTime" name="time" required>
+                    <p id="availability-message" style="text-align: center; color: red;"></p>
                 </div>
 
                 <button type="submit" class="submit-btn" id="submitBtn" disabled>Confirm Booking</button>
@@ -882,16 +992,150 @@
             document.getElementById("doctorId").value = id;
             document.getElementById("modalDeviceName").innerText = "Booking with " + name;
             modal.style.display = "block";
-            // Reset form
+            document.body.style.overflow = 'hidden'; 
+            
+            // Allow modal to render then init wheel
+            setTimeout(() => {
+                initDateWheel();
+            }, 100);
+            
             form.reset();
-            timeSlotsContainer.innerHTML = '<p style="color: #666; font-size: 0.9rem;">Select a date to see available slots</p>';
             submitBtn.disabled = true;
         }
 
         function closeBookingModal() {
             modal.style.display = "none";
+            document.body.style.overflow = '';
         }
 
+        /* --- Wheel Picker Logic --- */
+        function initDateWheel() {
+            const dateColumn = document.getElementById('dateColumn');
+            dateColumn.innerHTML = '';
+            const today = new Date();
+            let firstDate = '';
+
+            // Generate next 30 days
+            for(let i=0; i<30; i++) {
+                const d = new Date(today);
+                d.setDate(today.getDate() + i);
+                
+                const dateStr = d.toISOString().split('T')[0];
+                const displayStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                
+                if(i===0) firstDate = dateStr;
+
+                const div = document.createElement('div');
+                div.className = 'picker-item';
+                div.innerText = displayStr;
+                div.dataset.value = dateStr;
+                div.onclick = function() { scrollToItem(dateColumn, this); };
+                dateColumn.appendChild(div);
+            }
+            
+            // Init Scroll Listener for Date
+            setupWheelListener(dateColumn, (selectedDate) => {
+                document.getElementById('date').value = selectedDate;
+                checkAvailabilityWheel();
+            });
+
+            // Init Scroll Listener for Time
+            setupWheelListener(document.getElementById('timeColumn'), (selectedTime) => {
+                document.getElementById('selectedTime').value = selectedTime;
+                submitBtn.disabled = !selectedTime || selectedTime === 'No Slots';
+            });
+
+            // Set initial date
+            document.getElementById('date').value = firstDate;
+            // Force active state visual
+            updateActiveItem(dateColumn);
+            // Load slots for today
+            checkAvailabilityWheel();
+        }
+
+        function setupWheelListener(container, callback) {
+            container.onscroll = () => {
+                clearTimeout(container.scrollTimer);
+                container.scrollTimer = setTimeout(() => {
+                    const activeItem = updateActiveItem(container);
+                    if(activeItem && activeItem.dataset.value) {
+                         callback(activeItem.dataset.value);
+                    }
+                }, 100);
+            };
+        }
+
+        function scrollToItem(container, item) {
+            const top = item.offsetTop - container.offsetTop - (container.clientHeight/2) + (item.clientHeight/2);
+            container.scrollTo({ top: top, behavior: 'smooth' });
+        }
+
+        function updateActiveItem(container) {
+            const center = container.scrollTop + (container.clientHeight / 2);
+            let closestInfo = { dist: Infinity, el: null };
+            
+            Array.from(container.children).forEach(child => {
+                const childCenter = child.offsetTop - container.offsetTop + (child.clientHeight / 2);
+                const dist = Math.abs(center - childCenter);
+                child.classList.remove('active-item');
+                if(dist < closestInfo.dist) {
+                    closestInfo = { dist: dist, el: child };
+                }
+            });
+            
+            if(closestInfo.el) {
+                closestInfo.el.classList.add('active-item');
+            }
+            return closestInfo.el;
+        }
+
+        function checkAvailabilityWheel() {
+            const doctorId = document.getElementById("doctorId").value;
+            const date = document.getElementById("date").value;
+            const timeColumn = document.getElementById("timeColumn");
+            
+            if (!date) return;
+            
+            // Show loading
+            // timeColumn.innerHTML = '<div class="picker-item">Loading...</div>';
+
+            fetch(`get_slots.php?doctor_id=${doctorId}&date=${date}&t=${new Date().getTime()}`)
+                .then(response => response.json())
+                .then(data => {
+                    timeColumn.innerHTML = '';
+                    if (data.success && data.slots.length > 0) {
+                        data.slots.forEach(slot => {
+                            const div = document.createElement('div');
+                            div.className = 'picker-item';
+                            div.innerText = slot;
+                            div.dataset.value = slot;
+                            div.onclick = function() { scrollToItem(timeColumn, this); };
+                            timeColumn.appendChild(div);
+                        });
+                        
+                        // Select first slot by default to avoid empty state
+                        updateActiveItem(timeColumn); 
+                        const firstSlot = timeColumn.querySelector('.picker-item');
+                        if(firstSlot) {
+                            document.getElementById('selectedTime').value = firstSlot.dataset.value;
+                            submitBtn.disabled = false;
+                        }
+
+                        document.getElementById("availability-message").innerText = "";
+                    } else {
+                        timeColumn.innerHTML = '<div class="picker-item" style="color:red">No Slots</div>';
+                         document.getElementById('selectedTime').value = "";
+                         submitBtn.disabled = true;
+                        document.getElementById("availability-message").innerText = "No slots available for this date.";
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    timeColumn.innerHTML = '<div class="picker-item">Error</div>';
+                });
+        }
+
+        /* --- Click Outside Logic --- */
         window.onclick = function(event) {
             // Dropdown close logic
             if (!event.target.matches('.dropdown-selected') && !event.target.matches('.dropdown-selected *')) {
@@ -903,52 +1147,11 @@
                     }
                 }
             }
+            
             // Modal close logic
-            if (event.target == modal) {
+            if (event.target === modal) {
                 closeBookingModal();
             }
-        }
-
-        function checkAvailability() {
-            const doctorId = document.getElementById("doctorId").value;
-            const date = document.getElementById("date").value;
-            
-            if (!date) return;
-
-            // Simple AJAX to fetch slots
-            fetch(`get_slots.php?doctor_id=${doctorId}&date=${date}`)
-                .then(response => response.json())
-                .then(data => {
-                    timeSlotsContainer.innerHTML = '';
-                    if (data.success && data.slots.length > 0) {
-                        data.slots.forEach(slot => {
-                            const div = document.createElement('div');
-                            div.className = 'time-slot';
-                            div.innerText = slot;
-                            div.onclick = () => selectTime(div, slot);
-                            timeSlotsContainer.appendChild(div);
-                        });
-                        document.getElementById("availability-message").innerText = "";
-                    } else {
-                        timeSlotsContainer.innerHTML = '<p style="color: red;">No slots available for this date.</p>';
-                        document.getElementById("availability-message").innerText = data.message || "No slots available.";
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    timeSlotsContainer.innerHTML = '<p>Error loading slots.</p>';
-                });
-        }
-
-        function selectTime(element, time) {
-            // Remove active class from all
-            const slots = document.querySelectorAll('.time-slot');
-            slots.forEach(s => s.classList.remove('selected'));
-            
-            // Add to clicked
-            element.classList.add('selected');
-            document.getElementById("selectedTime").value = time;
-            submitBtn.disabled = false;
         }
 
         form.onsubmit = function(e) {
