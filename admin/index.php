@@ -11,6 +11,13 @@ include '../db_config.php';
 $doctor_id = $_SESSION['doctor_id'];
 $doctor_name = $_SESSION['doctor_name'];
 
+// Fetch Doctor Details
+$sql_doc = "SELECT * FROM doctors WHERE id = ?";
+$stmt_doc = $conn->prepare($sql_doc);
+$stmt_doc->bind_param("i", $doctor_id);
+$stmt_doc->execute();
+$doctor_data = $stmt_doc->get_result()->fetch_assoc();
+
 // Handle Bulk Availability Update
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['save_all_availability'])) {
     $days_data = $_POST['days']; // Array of day settings
@@ -357,7 +364,8 @@ $days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Su
         <div class="logo">Med Buddy</div>
         <a href="#appointments" class="menu-item active">Appointments</a>
         <a href="#availability" class="menu-item">My Schedule</a>
-        <a href="../doctor_login.php" class="menu-item logout">Logout</a>
+        <a href="search_patient.php" class="menu-item">Patient Results</a>
+        <a href="logout.php" class="menu-item logout">Logout</a>
     </div>
 
     <div class="main-content">
@@ -366,6 +374,51 @@ $days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Su
         </div>
         
         <?php if(isset($success_msg)) echo "<div class='alert'>$success_msg</div>"; ?>
+
+        <!-- Profile Section -->
+        <div class="card" style="display: flex; align-items: start; gap: 2rem;">
+            <div style="flex-shrink: 0;">
+                <?php 
+                $img_src = !empty($doctor_data['image_path']) ? "../" . $doctor_data['image_path'] : "https://via.placeholder.com/150";
+                ?>
+                <img src="<?php echo htmlspecialchars($img_src); ?>" alt="Doctor Photo" style="width: 150px; height: 150px; border-radius: 50%; object-fit: cover; border: 4px solid #E6F4FF;">
+            </div>
+            <div>
+                <h2 style="border: none; margin-bottom: 0.5rem; padding-bottom: 0;"><?php echo htmlspecialchars($doctor_data['name']); ?></h2>
+                <p style="margin: 0 0 1rem; color: #666; font-weight: 500;">
+                    <?php echo htmlspecialchars($doctor_data['specialization']); ?> | 
+                    ID: <span style="color: var(--primary-color); font-weight: 700;"><?php echo htmlspecialchars($doctor_data['doctor_identity'] ?? 'N/A'); ?></span>
+                </p>
+                
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; font-size: 0.95rem;">
+                    <div>
+                        <strong>Email:</strong> <?php echo htmlspecialchars($doctor_data['email']); ?>
+                    </div>
+                    <div>
+                        <strong>Phone:</strong> <?php echo htmlspecialchars($doctor_data['phone_number'] ?? 'N/A'); ?>
+                    </div>
+                    <div>
+                        <strong>Work Type:</strong> <?php echo htmlspecialchars($doctor_data['work_type'] ?? 'N/A'); ?>
+                    </div>
+                    
+                    <?php if(($doctor_data['work_type'] ?? '') == 'Clinic'): ?>
+                    <div>
+                        <strong>Clinic:</strong> <?php echo htmlspecialchars($doctor_data['clinic_name'] ?? ''); ?>
+                    </div>
+                    <div>
+                        <strong>Timings:</strong> <?php echo htmlspecialchars($doctor_data['clinic_timings'] ?? ''); ?>
+                    </div>
+                    <?php else: ?>
+                    <div>
+                        <strong>Hospital:</strong> <?php echo htmlspecialchars($doctor_data['hospital_name'] ?? ''); ?>
+                    </div>
+                    <div>
+                        <strong>Designation:</strong> <?php echo htmlspecialchars($doctor_data['designation'] ?? ''); ?>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
 
         <!-- Appointments Section -->
         <div id="appointments" class="card">

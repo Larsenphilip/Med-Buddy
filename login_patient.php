@@ -27,6 +27,12 @@ if ($result && $result->num_rows > 0) {
     
     // Verify password check
     if (password_verify($password, $user['password'])) {
+        session_start();
+        $_SESSION['user_type'] = 'patient';
+        $_SESSION['patient_id'] = $user['patient_id'];
+        $_SESSION['email'] = $user['email'];
+        $_SESSION['full_name'] = $user['full_name'];
+
         echo json_encode(['success' => true, 'message' => 'Login successful']);
     } else {
         echo json_encode(['success' => false, 'message' => 'Invalid password']);

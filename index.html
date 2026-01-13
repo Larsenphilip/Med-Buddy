@@ -542,6 +542,250 @@
         .form-footer a:hover {
             text-decoration: underline;
         }
+
+        /* --- Team Section --- */
+        .team-section {
+            padding: 6rem var(--container-padding);
+            /* Subtle gradient background to differentiate from white/hero */
+            background: linear-gradient(to bottom, #F9FAFB, #FFFFFF);
+        }
+
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .team-card {
+            background: var(--white);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2.5rem 1.5rem;
+            text-align: center;
+            transition: var(--transition);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .team-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+            border-color: var(--primary-color);
+        }
+
+        .team-avatar-container {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            margin-bottom: 1rem;
+            position: relative;
+            z-index: 1;
+            /* Decorative ring */
+            padding: 4px;
+            background: var(--white);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .team-avatar-container img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            background-color: var(--secondary-color);
+        }
+
+        .team-name {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 0.25rem;
+        }
+
+        .team-role {
+            color: var(--text-light);
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .team-details {
+            font-size: 0.85rem;
+            color: #6B7280;
+            /* Neutral gray */
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+            min-height: 3em;
+        }
+
+        .btn-view-profile {
+            background-color: var(--primary-color);
+            color: var(--white);
+            padding: 0.6rem 1.75rem;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: var(--transition);
+            display: inline-block;
+            border: none;
+        }
+
+        .btn-view-profile:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 102, 204, 0.25);
+        }
+
+        /* --- Testimonials Section (Patients) --- */
+        .testimonial-section {
+            padding: 6rem var(--container-padding);
+            background-color: var(--white);
+        }
+
+        .testimonial-card {
+            background: var(--white);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2.5rem 1.5rem;
+            text-align: center;
+            transition: var(--transition);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100%;
+        }
+
+        .testimonial-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+            border-color: var(--primary-color);
+        }
+
+        .stars {
+            color: #FBBF24;
+            /* Amber/Gold */
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            letter-spacing: 2px;
+        }
+
+        .testimonial-quote {
+            font-size: 1rem;
+            color: var(--text-light);
+            font-style: italic;
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+            flex-grow: 1;
+            /* Pushes content down if needed, but here keeps alignment */
+        }
+
+        .patient-info {
+            font-weight: 700;
+            color: var(--text-dark);
+            font-size: 1rem;
+        }
+
+        .patient-role {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            margin-top: 0.25rem;
+            font-weight: 500;
+        }
+
+        /* --- Stats & CTA Section --- */
+        .stats-cta-section {
+            background-color: var(--primary-color);
+            color: var(--white);
+            padding: 5rem var(--container-padding);
+            text-align: center;
+        }
+
+        .stats-container {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto 5rem auto;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 3rem;
+        }
+
+        .stat-item h3 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-item p {
+            font-size: 1rem;
+            opacity: 0.9;
+            font-weight: 500;
+        }
+
+        .cta-content h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+
+        .cta-content p {
+            font-size: 1.1rem;
+            margin-bottom: 2.5rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cta-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-white-outline {
+            border: 2px solid var(--white);
+            color: var(--white);
+            padding: 0.85rem 2rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: var(--transition);
+        }
+
+        .btn-white-outline:hover {
+            background-color: var(--white);
+            color: var(--primary-color);
+            transform: translateY(-2px);
+        }
+
+        .btn-blue-dark {
+            background-color: #004499;
+            /* Darker shade of primary */
+            color: var(--white);
+            padding: 0.85rem 2rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: var(--transition);
+            border: 2px solid #004499;
+        }
+
+        .btn-blue-dark:hover {
+            background-color: #003377;
+            border-color: #003377;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
     </style>
 </head>
 
@@ -579,7 +823,8 @@
             <div class="hero-cta">
                 <a href="javascript:void(0)" onclick="openModal('register')" class="btn btn-primary">Register as
                     Patient</a>
-                <a href="./admin" class="btn btn-outline">Doctor / Hospital Login</a>
+                <a href="javascript:void(0)" onclick="openDoctorModal()" class="btn btn-outline">Doctor / Hospital
+                    Login</a>
             </div>
         </div>
     </section>
@@ -602,7 +847,7 @@
                     <li>Secure health record storage</li>
                     <li>Upload reports & prescriptions</li>
                     <li>Book appointments</li>
-                    <li>View AI health summary</li>
+
                 </ul>
             </div>
 
@@ -615,7 +860,7 @@
                 <ul>
                     <li>Access patient records using unique ID</li>
                     <li>Centralized patient data</li>
-                    <li>Faster diagnosis</li>
+
                 </ul>
             </div>
 
@@ -633,13 +878,157 @@
         </div>
     </section>
 
+    <!-- Meet Our Team -->
+    <section class="team-section" id="team">
+        <div class="section-header">
+            <h2>Meet Our Team</h2>
+            <p style="color: var(--text-light);">Trusted healthcare professionals ready to serve you</p>
+        </div>
+
+        <div class="team-grid">
+            <!-- Dr. Rajesh Sharma -->
+            <div class="team-card">
+                <div class="team-avatar-container">
+                    <img src="assets/images/doc1.jpg"
+                        alt="Dr. Rajesh Sharma">
+                </div>
+                <h3 class="team-name">Dr. Rajesh Sharma</h3>
+                <p class="team-role">Cardiologist</p>
+                <p class="team-details">MD, FACC • Apollo Hospitals • 15+ years</p>
+                <a href="#" class="btn-view-profile">View Profile</a>
+            </div>
+
+            <!-- Dr. Priya Nair -->
+            <div class="team-card">
+                <div class="team-avatar-container">
+                    <img src="assets/images/doc2.jpg"
+                        alt="Dr. Priya Nair">
+                </div>
+                <h3 class="team-name">Dr. Priya Nair</h3>
+                <p class="team-role">General Medicine</p>
+                <p class="team-details">MBBS • Max Healthcare • 12+ years</p>
+                <a href="#" class="btn-view-profile">View Profile</a>
+            </div>
+
+            <!-- Dr. Amit Kumar -->
+            <div class="team-card">
+                <div class="team-avatar-container">
+                    <img src="assets/images/doc3.jpg"
+                        alt="Dr. Amit Kumar">
+                </div>
+                <h3 class="team-name">Dr. Amit Kumar</h3>
+                <p class="team-role">Endocrinologist</p>
+                <p class="team-details">MD • Fortis Hospital • 10+ years</p>
+                <a href="#" class="btn-view-profile">View Profile</a>
+            </div>
+
+            <!-- Dr. Sneha Gupta -->
+            <div class="team-card">
+                <div class="team-avatar-container">
+                    <img src="assets/images/doc3.jpg"
+                        alt="Dr. Sneha Gupta">
+                </div>
+                <h3 class="team-name">Dr. Sneha Gupta</h3>
+                <p class="team-role">Pediatrics</p>
+                <p class="team-details">MBBS, Board Certified • Fortis • 8+ years</p>
+                <a href="#" class="btn-view-profile">View Profile</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- What Patients Say -->
+    <section class="testimonial-section">
+        <div class="section-header">
+            <h2>What Patients Say</h2>
+            <p style="color: var(--text-light);">Real stories from real patients using Med-Buddy</p>
+        </div>
+
+        <div class="team-grid">
+            <!-- Anjali Patel -->
+            <div class="testimonial-card">
+                <div class="team-avatar-container">
+                    <img src="https://api.dicebear.com/9.x/avataaars/svg?seed=Anjali&backgroundColor=0066cc&radius=50"
+                        alt="Anjali Patel">
+                </div>
+                <div class="stars">★★★★★</div>
+                <p class="testimonial-quote">"AI insights help me understand my health better than ever before!"</p>
+                <div>
+                    <div class="patient-info">Anjali Patel, 28</div>
+                    <div class="patient-role">General Health</div>
+                </div>
+            </div>
+
+            <!-- Dr. Vikram Singh (Patient user or testimonial from doc perspective as user) -->
+            <!-- Based on image it seems to be mixed or just users -->
+            <div class="testimonial-card">
+                <div class="team-avatar-container">
+                    <img src="https://api.dicebear.com/9.x/avataaars/svg?seed=Vikram&backgroundColor=0066cc&radius=50"
+                        alt="Dr. Vikram Singh">
+                </div>
+                <div class="stars">★★★★★</div>
+                <p class="testimonial-quote">"Saves me so much time. Complete patient information available instantly."
+                </p>
+                <div>
+                    <div class="patient-info">Dr. Vikram Singh</div>
+                    <div class="patient-role">Cardiologist</div>
+                </div>
+            </div>
+
+            <!-- Meera Desai -->
+            <div class="testimonial-card">
+                <div class="team-avatar-container">
+                    <img src="https://api.dicebear.com/9.x/avataaars/svg?seed=Meera&backgroundColor=0066cc&radius=50"
+                        alt="Meera Desai">
+                </div>
+                <div class="stars">★★★★★</div>
+                <p class="testimonial-quote">"My care is finally coordinated across multiple specialists!"</p>
+                <div>
+                    <div class="patient-info">Meera Desai, 40</div>
+                    <div class="patient-role">Multiple Conditions</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats & CTA Section -->
+    <section class="stats-cta-section">
+        <div class="stats-container">
+            <div class="stat-item">
+                <h3>200</h3>
+                <p>Patients</p>
+            </div>
+            <div class="stat-item">
+                <h3>10</h3>
+                <p>Healthcare Providers</p>
+            </div>
+            <div class="stat-item">
+                <h3>200</h3>
+                <p>Records Stored</p>
+            </div>
+            <div class="stat-item">
+                <h3>99.9%</h3>
+                <p>Uptime</p>
+            </div>
+        </div>
+
+        <div class="cta-content">
+            <h2>Ready to Take Control?</h2>
+            <p>Join thousands of patients managing their health records securely.</p>
+            <div class="cta-buttons">
+                <a href="javascript:void(0)" onclick="openModal('register')" class="btn-white-outline">Get Started
+                    Today</a>
+                <a href="appointment.php" class="btn-blue-dark">Schedule Visit</a>
+            </div>
+        </div>
+    </section>
+
     <!-- Authentication Modal -->
     <div class="modal-overlay" id="authModal">
         <div class="auth-modal">
             <button class="modal-close" onclick="closeModal()">&times;</button>
 
             <div class="auth-tabs">
-                <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Login</button>
+                <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Patient Login</button>
                 <button class="auth-tab" id="tab-register" onclick="switchTab('register')">Register</button>
             </div>
 
@@ -706,17 +1095,63 @@
                         </div>
                     </form>
                 </div>
+
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <!-- Doctor Authentication Modal (Separate) -->
+    <div class="modal-overlay" id="doctorModal">
+        <div class="auth-modal">
+            <button class="modal-close" onclick="closeDoctorModal()">&times;</button>
+
+            <div
+                style="padding: 1.25rem; font-weight: 700; font-size: 1.2rem; text-align: center; border-bottom: 1px solid var(--border-color); color: var(--primary-color);">
+                Doctor Login
+            </div>
+
+            <div class="auth-body">
+                <!-- Doctor Login Form -->
+                <div class="auth-form active" id="form-doctor" style="display: block;">
+                    <form id="doctorLoginFormTag">
+                        <div class="form-group">
+                            <label for="doctor-email">Email Address</label>
+                            <input type="email" id="doctor-email" class="form-control" placeholder="doctor@medbuddy.com"
+                                required>
+                            <div class="error-msg"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="doctor-pass">Password</label>
+                            <input type="password" id="doctor-pass" class="form-control"
+                                placeholder="Enter your password" required>
+                            <div class="error-msg"></div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-full">Login as Doctor</button>
+
+                        <div class="form-footer">
+                            <p>Access for authorized medical personnel only.</p>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
         // Modal Logic
+        // Modal Logic
         const modalOverlay = document.getElementById('authModal');
         const loginTab = document.getElementById('tab-login');
         const registerTab = document.getElementById('tab-register');
+
         const loginForm = document.getElementById('form-login');
         const registerForm = document.getElementById('form-register');
+
+        // Doctor Modal Logic
+        const doctorModalOverlay = document.getElementById('doctorModal');
 
         function openModal(type) {
             modalOverlay.classList.add('active');
@@ -728,33 +1163,59 @@
             }
         }
 
+        function openDoctorModal() {
+            doctorModalOverlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            // Reset form if needed
+        }
+
         function closeModal() {
             modalOverlay.classList.remove('active');
             document.body.style.overflow = '';
-            // Reset forms
+            // Reset patient forms
             document.getElementById('loginFormTag').reset();
             document.getElementById('registerFormTag').reset();
-            document.querySelectorAll('.error-msg').forEach(el => el.style.display = 'none');
-            document.querySelectorAll('.form-control').forEach(el => el.classList.remove('error'));
+            clearAllErrors();
+        }
+
+        function closeDoctorModal() {
+            doctorModalOverlay.classList.remove('active');
+            document.body.style.overflow = '';
+            // Reset doctor form
+            document.getElementById('doctorLoginFormTag').reset();
+            clearAllErrors();
         }
 
         function switchTab(tab) {
+            // Remove active class from all
+            loginTab.classList.remove('active');
+            registerTab.classList.remove('active');
+
+            loginForm.classList.remove('active');
+            registerForm.classList.remove('active');
+
+            // Add active class to selected
             if (tab === 'login') {
                 loginTab.classList.add('active');
-                registerTab.classList.remove('active');
                 loginForm.classList.add('active');
-                registerForm.classList.remove('active');
-            } else {
-                loginTab.classList.remove('active');
+            } else if (tab === 'register') {
                 registerTab.classList.add('active');
-                loginForm.classList.remove('active');
                 registerForm.classList.add('active');
             }
+        }
+
+        function clearAllErrors() {
+            document.querySelectorAll('.error-msg').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.form-control').forEach(el => el.classList.remove('error'));
         }
 
         // Close on outside click
         modalOverlay.addEventListener('click', (e) => {
             if (e.target === modalOverlay) closeModal();
+        });
+
+        doctorModalOverlay.addEventListener('click', (e) => {
+            if (e.target === doctorModalOverlay) closeDoctorModal();
         });
 
         // Error helper
@@ -903,6 +1364,44 @@
                     } else {
                         showError(passInput, data.message || 'Invalid email/ID or password.');
                         loginInput.classList.add('error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showError(passInput, 'An error occurred. Please try again.');
+                });
+        });
+
+        // Doctor Login Handler
+        document.getElementById('doctorLoginFormTag').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const emailInput = document.getElementById('doctor-email');
+            const passInput = document.getElementById('doctor-pass');
+
+            const emailVal = emailInput.value.trim();
+            const passVal = passInput.value;
+
+            // Clear previous errors
+            document.querySelectorAll('.error-msg').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.form-control').forEach(el => el.classList.remove('error'));
+
+            fetch('login_doctor_action.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    email: emailVal,
+                    password: passVal
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = data.redirect;
+                    } else {
+                        showError(passInput, data.message || 'Invalid email or password.');
                     }
                 })
                 .catch(error => {

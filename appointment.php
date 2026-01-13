@@ -1,3 +1,37 @@
+<?php
+session_start();
+include 'db_config.php';
+
+// Fetch unique hospitals/clinics for filter
+$hospitals = [];
+$sql_hosp = "SELECT DISTINCT CASE WHEN work_type = 'Clinic' THEN clinic_name ELSE hospital_name END as place FROM doctors";
+$res_hosp = $conn->query($sql_hosp);
+if($res_hosp) {
+    while($r = $res_hosp->fetch_assoc()) {
+        if(!empty($r['place'])) {
+            $hospitals[] = $r['place'];
+        }
+    }
+}
+
+// Fetch all doctors ordered by specialization
+$sql = "SELECT * FROM doctors ORDER BY specialization ASC, name ASC";
+$result = $conn->query($sql);
+
+$doctors_by_spec = [];
+if ($result->num_rows > 0) {
+    while($row = $result->fetch_assoc()) {
+        // Group by specialization
+        $spec = !empty($row['specialization']) ? $row['specialization'] : 'General';
+        $doctors_by_spec[$spec][] = $row;
+    }
+}
+
+// Get unique specializations for filter
+$specializations = array_keys($doctors_by_spec);
+sort($specializations);
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -45,7 +79,7 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        /* --- Header (Copied from Index) --- */
+        /* --- Header (Responsive) --- */
         header {
             display: flex;
             justify-content: space-between;
@@ -87,8 +121,205 @@
             transition: var(--transition);
         }
 
-     
+        /* --- Authentication Modal --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
 
+        .modal-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .auth-modal {
+            background: var(--white);
+            width: 90%;
+            max-width: 450px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            transform: translateY(20px);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-overlay.active .auth-modal {
+            transform: translateY(0);
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 1.5rem;
+            color: var(--text-light);
+            cursor: pointer;
+            background: none;
+            border: none;
+            z-index: 10;
+            transition: color 0.3s;
+        }
+
+        .modal-close:hover {
+            color: var(--text-dark);
+        }
+
+        .auth-tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .auth-tab {
+            flex: 1;
+            padding: 1.25rem;
+            font-weight: 600;
+            color: var(--text-light);
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 1rem;
+            position: relative;
+        }
+
+        .auth-tab.active {
+            color: var(--primary-color);
+            background: var(--white);
+        }
+
+        .auth-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: var(--primary-color);
+        }
+
+        .auth-body {
+            padding: 2rem;
+        }
+
+        .auth-form {
+            display: none;
+        }
+
+        .auth-form.active {
+            display: block;
+            animation: fadeIn 0.4s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-dark);
+            font-weight: 600;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.85rem 1rem;
+            border: 1px solid var(--border-color);
+            background: #F9FAFB;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: var(--transition);
+            outline: none;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-color);
+            background: var(--white);
+            box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1);
+        }
+
+        .form-control.error {
+            border-color: #ef4444;
+            background: #fff5f5;
+        }
+
+        .error-msg {
+            color: #ef4444;
+            font-size: 0.8rem;
+            margin-top: 0.35rem;
+            display: none;
+        }
+
+        .btn-full {
+            width: 100%;
+            margin-top: 1rem;
+            justify-content: center;
+        }
+
+        .form-footer {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+            color: var(--text-light);
+        }
+
+        .form-footer a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .form-footer a:hover {
+            text-decoration: underline;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: var(--white);
+            border: 2px solid var(--primary-color);
+            box-shadow: 0 4px 6px rgba(0, 102, 204, 0.2);
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--border-radius);
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+            border-color: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 102, 204, 0.3);
+        }
 
         .auth-buttons {
             display: flex;
@@ -106,7 +337,26 @@
             transition: var(--transition);
         }
 
-     
+
+        /* Mobile Header */
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                padding: 1rem;
+                gap: 1rem;
+            }
+            
+            nav ul {
+                gap: 1rem;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .auth-buttons {
+                width: 100%;
+                justify-content: center;
+            }
+        }
 
         /* --- Page Layout --- */
         .page-header {
@@ -127,6 +377,8 @@
             width: 100%;
             display: flex;
             justify-content: flex-start;
+            gap: 1rem;
+            flex-wrap: wrap;
         }
 
         .header-text {
@@ -139,7 +391,7 @@
         /* Custom Dropdown Styles */
         .custom-dropdown {
             position: relative;
-            min-width: 280px;
+            min-width: 240px;
             font-family: 'Inter', sans-serif;
         }
 
@@ -156,6 +408,7 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
             transition: all 0.3s ease;
             font-weight: 500;
+            font-size: 0.95rem;
         }
 
         .dropdown-selected:hover {
@@ -190,6 +443,8 @@
             display: none;
             z-index: 100;
             animation: fadeIn 0.2s ease;
+            max-height: 300px;
+            overflow-y: auto;
         }
 
         .custom-dropdown.open .dropdown-options {
@@ -201,6 +456,7 @@
             cursor: pointer;
             transition: background 0.2s;
             color: var(--text-dark);
+            font-size: 0.95rem;
         }
 
         .dropdown-option:hover {
@@ -213,7 +469,6 @@
             color: white;
         }
 
-        /* Responsive Adjustments for Filter */
         /* Responsive Adjustments for Filter */
         @media (max-width: 1024px) {
             .page-header {
@@ -281,53 +536,54 @@
             gap: 2rem;
         }
 
-        /* --- Doctor Card Design --- */
+        /* --- Doctor Card Premium Design --- */
         .doctor-card {
             background: var(--white);
-            border: 1px solid var(--border-color);
-            border-radius: 8px; /* Slightly sharper as per image */
-            overflow: hidden;
-            transition: var(--transition);
+            border: none;
+            border-radius: 20px;
+            overflow: visible;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             display: flex;
             flex-direction: column;
             text-align: center;
+            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.05);
+            position: relative;
         }
 
-        
         .card-image-container {
-            background-color: var(--card-header-bg);
-            padding: 2rem 1rem;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            background: linear-gradient(to bottom, var(--secondary-color), transparent);
+            padding: 2.5rem 1rem 1.5rem;
+            border-radius: 20px 20px 0 0;
             position: relative;
         }
 
         .doctor-img {
-            width: 140px;
-            height: 140px;
+            width: 120px;
+            height: 120px;
             border-radius: 50%;
             object-fit: cover;
             border: 4px solid var(--white);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-            background-color: #ddd; /* Placeholder color */
+            box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+            margin: 0 auto;
+            background-color: #fff;
         }
         
         .doctor-img-placeholder {
-            width: 140px;
-            height: 140px;
+            width: 120px;
+            height: 120px;
             border-radius: 50%;
-            background-color: #D1D5DB;
+            background-color: var(--white);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 3rem;
+            font-size: 3.5rem;
             border: 4px solid var(--white);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+            margin: 0 auto;
         }
 
         .card-content {
-            padding: 1.5rem;
+            padding: 2rem;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -335,42 +591,51 @@
         }
 
         .doctor-name {
-            font-size: 1.25rem;
-            font-weight: 700;
+            font-size: 1.4rem;
+            font-weight: 800;
+            margin-bottom: 0.25rem;
+            letter-spacing: -0.5px;
             color: var(--text-dark);
-            margin-bottom: 0.5rem;
         }
 
         .doctor-designation {
             font-size: 0.9rem;
-            color: var(--text-light);
-            margin-bottom: 0.5rem;
-            font-weight: 400;
-            line-height: 1.4;
+            color: var(--primary-color);
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .doctor-department {
-            font-size: 1rem;
+            font-size: 0.95rem;
+            margin-bottom: 2rem;
+            background: #f3f4f6;
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
             color: var(--text-dark);
-            font-weight: 500;
-            margin-bottom: 1.5rem;
         }
 
         .btn-request {
-            background-color: var(--btn-yellow);
-            color: #FFFFFF; /* Dark text for contrast */
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+            color: #FFFFFF;
             border: none;
-            padding: 0.75rem 1.5rem;
-            font-weight: 700;
+            padding: 1rem 1.5rem;
+            font-weight: 600;
             font-size: 1rem;
-            border-radius: 6px;
+            border-radius: 12px;
             cursor: pointer;
             width: 100%;
-            transition: var(--transition);
-            text-transform: capitalize;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 102, 204, 0.2);
+            margin-top: auto;
         }
-
-     
+        
+        .btn-request:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 102, 204, 0.3);
+        }
 
         /* Modal Styles */
         .modal {
@@ -388,29 +653,23 @@
 
         .modal-content {
             background-color: var(--white);
-            margin: 2vh auto; /* Reduced top margin */
-            padding: 1.5rem; /* Reduced padding */
+            margin: 2vh auto; 
+            padding: 1.5rem; 
             border: none;
             width: 95%;
             max-width: 500px;
-            max-height: 95vh; /* Ensure it fits in screen */
-            overflow-y: auto; /* Scrollable if needed */
+            max-height: 95vh;
+            overflow-y: auto; 
             border-radius: 24px;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
             animation: modalFadeIn 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
             position: relative;
-            scrollbar-width: none; /* Hide scrollbar for cleaner look */
         }
         .modal-content::-webkit-scrollbar { display: none; }
 
         @keyframes modalFadeIn {
             from {opacity: 0; transform: translateY(20px);}
             to {opacity: 1; transform: translateY(0);}
-        }
-
-        @keyframes fadeIn {
-            from {opacity: 0; transform: translateY(-60%);}
-            to {opacity: 1; transform: translateY(-50%);}
         }
 
         .close {
@@ -421,7 +680,7 @@
             cursor: pointer;
         }
 
-      
+        .close:hover,
         .close:focus {
             color: black;
             text-decoration: none;
@@ -468,32 +727,9 @@
             transition: var(--transition);
         }
 
-
-        .time-slots {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            margin-top: 0.5rem;
-        }
-
-        .time-slot {
-            padding: 0.5rem 1rem;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            background: #f9f9f9;
-        }
-
-        .time-slot.selected {
-            background-color: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
-        }
-        
-        #availability-message {
-            margin-top: 10px;
-            font-size: 0.9rem;
+        .submit-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
         }
 
         /* --- Alarm Clock Style Picker --- */
@@ -520,7 +756,7 @@
         .picker-container {
             display: flex;
             justify-content: space-between;
-            height: 140px; /* Reduced height */
+            height: 140px; 
             background: #f8fafc;
             border-radius: 12px;
             position: relative;
@@ -535,7 +771,7 @@
             overflow-y: scroll;
             scroll-snap-type: y mandatory;
             text-align: center;
-            padding-top: 50px; /* (140 - 40) / 2 */
+            padding-top: 50px; 
             padding-bottom: 50px;
             scrollbar-width: none;
             position: relative;
@@ -575,107 +811,6 @@
             pointer-events: none;
             z-index: 1;
         }
-
-        /* Mobile Responsiveness */
-        @media (max-width: 768px) {
-            header {
-                flex-direction: column;
-                gap: 1rem;
-            }
-            
-            nav ul {
-                gap: 1rem;
-                flex-wrap: wrap;
-                justify-content: center;
-            }
-
-            .page-header h1 {
-                font-size: 2rem;
-            }
-        }
-
-        /* --- Doctor Card Premium Design Overrides --- */
-        .doctor-card {
-            background: var(--white);
-            border: none !important; /* Override previous border */
-            border-radius: 20px !important;
-            overflow: visible !important;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            display: flex;
-            flex-direction: column;
-            text-align: center;
-            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.05);
-            position: relative;
-        }
-
-    
-
-        .card-image-container {
-            background: linear-gradient(to bottom, var(--secondary-color), transparent) !important;
-            padding: 2.5rem 1rem 1.5rem !important;
-            border-radius: 20px 20px 0 0;
-            position: relative;
-        }
-
-        .doctor-img-placeholder {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            background-color: var(--white);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 3.5rem;
-            border: 4px solid var(--white);
-            box-shadow: 0 8px 16px rgba(0,0,0,0.08);
-            margin: 0 auto;
-        }
-
-        .card-content {
-            padding: 2rem !important;
-        }
-
-        .doctor-name {
-            font-size: 1.4rem;
-            font-weight: 800;
-            margin-bottom: 0.25rem;
-            letter-spacing: -0.5px;
-        }
-
-        .doctor-designation {
-            font-size: 0.9rem;
-            color: var(--primary-color);
-            margin-bottom: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .doctor-department {
-            font-size: 0.95rem;
-            margin-bottom: 2rem;
-            background: #f3f4f6;
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-        }
-
-        .btn-request {
-            background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
-            color: #FFFFFF;
-            border: none;
-            padding: 1rem 1.5rem;
-            font-weight: 600;
-            font-size: 1rem;
-            border-radius: 12px;
-            cursor: pointer;
-            width: 100%;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 6px rgba(0, 102, 204, 0.2);
-            margin-top: auto;
-        }
-
-
     </style>
 </head>
 
@@ -697,24 +832,38 @@
         </nav>
 
         <div class="auth-buttons">
-            <a href="index.html#login" class="btn-text">Login</a>
-           
+            <a href="javascript:void(0)" onclick="openModal('login')" class="btn-text">Login</a>
         </div>
     </header>
 
     <!-- Page Title & Filter -->
     <div class="page-header">
         <div class="filter-container">
+            <!-- Hospital Filter -->
              <div class="custom-dropdown" id="hospitalDropdown">
                 <input type="hidden" id="hospitalFilter" value="all">
-                <div class="dropdown-selected" onclick="toggleDropdown()">All Hospitals</div>
+                <div class="dropdown-selected" onclick="toggleDropdown('hospitalDropdown')">All Hospitals / Clinics</div>
                 <div class="dropdown-options">
-                    <div class="dropdown-option selected" onclick="selectHospital('all', 'All Hospitals')">All Hospitals</div>
-                    <div class="dropdown-option" onclick="selectHospital('1', 'City General Hospital')">City General Hospital</div>
-                    <div class="dropdown-option" onclick="selectHospital('2', 'Green Valley Clinic')">Green Valley Clinic</div>
-                    <div class="dropdown-option" onclick="selectHospital('3', 'St. Mary Medical Center')">St. Mary Medical Center</div>
-                    <div class="dropdown-option" onclick="selectHospital('4', 'Global Health Institute')">Global Health Institute</div>
-                    <div class="dropdown-option" onclick="selectHospital('5', 'Community Care Center')">Community Care Center</div>
+                    <div class="dropdown-option selected" onclick="selectFilter('hospital', 'all', 'All Hospitals / Clinics')">All Hospitals / Clinics</div>
+                    <?php foreach($hospitals as $hosp): ?>
+                        <div class="dropdown-option" onclick="selectFilter('hospital', '<?php echo htmlspecialchars($hosp); ?>', '<?php echo htmlspecialchars($hosp); ?>')">
+                            <?php echo htmlspecialchars($hosp); ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+
+            <!-- Specialization Filter -->
+            <div class="custom-dropdown" id="specDropdown">
+                <input type="hidden" id="specFilter" value="all">
+                <div class="dropdown-selected" onclick="toggleDropdown('specDropdown')">All Specializations</div>
+                <div class="dropdown-options">
+                    <div class="dropdown-option selected" onclick="selectFilter('spec', 'all', 'All Specializations')">All Specializations</div>
+                    <?php foreach($specializations as $s): ?>
+                        <div class="dropdown-option" onclick="selectFilter('spec', '<?php echo htmlspecialchars($s); ?>', '<?php echo htmlspecialchars($s); ?>')">
+                            <?php echo htmlspecialchars($s); ?>
+                        </div>
+                    <?php endforeach; ?>
                 </div>
             </div>
         </div>
@@ -724,163 +873,40 @@
         </div>
     </div>
 
-    <!-- Section 1: Cardiac Sciences -->
-    <section class="department-section">
-        <h2 class="section-title">Cardiac Sciences</h2>
-        <div class="doctors-grid">
-            <!-- Doc 1 (Hospital 1) -->
-            <div class="doctor-card" data-hospital="1">
-                <div class="card-image-container">
-                    <div class="doctor-img-placeholder">👨‍⚕️</div>
+    <?php if(empty($doctors_by_spec)): ?>
+        <section class="department-section">
+            <p style="text-align: center; color: #666; font-size: 1.2rem;">No doctors currently available.</p>
+        </section>
+    <?php else: ?>
+        <?php foreach($doctors_by_spec as $spec => $doctors): ?>
+        <section class="department-section" data-specialization="<?php echo htmlspecialchars($spec); ?>">
+            <h2 class="section-title"><?php echo htmlspecialchars($spec); ?></h2>
+            <div class="doctors-grid">
+                <?php foreach($doctors as $doc): 
+                    $place = ($doc['work_type'] == 'Clinic') ? $doc['clinic_name'] : $doc['hospital_name'];
+                    $designation = ($doc['work_type'] == 'Clinic') ? 'General Practitioner' : ($doc['designation'] ?? 'Consultant');
+                    $image_src = !empty($doc['image_path']) ? $doc['image_path'] : '';
+                ?>
+                <div class="doctor-card" data-hospital="<?php echo htmlspecialchars($place); ?>">
+                    <div class="card-image-container">
+                        <?php if($image_src && file_exists($image_src)): ?>
+                            <img src="<?php echo htmlspecialchars($image_src); ?>" alt="Doctor" class="doctor-img">
+                        <?php else: ?>
+                            <div class="doctor-img-placeholder">👨‍⚕️</div>
+                        <?php endif; ?>
+                    </div>
+                    <div class="card-content">
+                        <h3 class="doctor-name"><?php echo htmlspecialchars($doc['name']); ?></h3>
+                        <p class="doctor-designation"><?php echo htmlspecialchars($designation); ?></p>
+                        <p class="doctor-department"><?php echo htmlspecialchars($doc['specialization']); ?></p>
+                        <button class="btn-request" onclick="openBookingModal(<?php echo $doc['id']; ?>, '<?php echo htmlspecialchars(addslashes($doc['name'])); ?>')">Request Appointment</button>
+                    </div>
                 </div>
-                <div class="card-content">
-                    <h3 class="doctor-name">Dr. Jyotirmaya Dash</h3>
-                    <p class="doctor-designation">Senior Consultant - Interventional Cardiologist</p>
-                    <p class="doctor-department">Cardiology</p>
-                    <button class="btn-request" onclick="openBookingModal(1, 'Dr. Jyotirmaya Dash')">Request Appointment</button>
-                </div>
+                <?php endforeach; ?>
             </div>
-            <!-- Doc 2 (Hospital 1) -->
-            <div class="doctor-card" data-hospital="1">
-                <div class="card-image-container">
-                    <div class="doctor-img-placeholder">👩‍⚕️</div>
-                </div>
-                <div class="card-content">
-                    <h3 class="doctor-name">Dr. Sarah Smith</h3>
-                    <p class="doctor-designation">Consultant - Cardiac Surgeon</p>
-                    <p class="doctor-department">Cardiology</p>
-                    <button class="btn-request" onclick="openBookingModal(2, 'Dr. Sarah Smith')">Request Appointment</button>
-                </div>
-            </div>
-            
-        </div>
-    </section>
-
-    <!-- Section 2: Neurology -->
-    <section class="department-section">
-        <h2 class="section-title">Neurology</h2>
-        <div class="doctors-grid">
-            <!-- Doc 1 (Hospital 2) -->
-            <div class="doctor-card" data-hospital="2">
-                <div class="card-image-container">
-                    <div class="doctor-img-placeholder">👨‍⚕️</div>
-                </div>
-                <div class="card-content">
-                    <h3 class="doctor-name">Dr. Alex Doe</h3>
-                    <p class="doctor-designation">Senior Consultant - Neurologist</p>
-                    <p class="doctor-department">Neurology</p>
-                    <button class="btn-request" onclick="openBookingModal(3, 'Dr. Alex Doe')">Request Appointment</button>
-                </div>
-            </div>
-            <!-- Doc 2 (Hospital 2) -->
-            <div class="doctor-card" data-hospital="2">
-                <div class="card-image-container">
-                    <div class="doctor-img-placeholder">👩‍⚕️</div>
-                </div>
-                <div class="card-content">
-                    <h3 class="doctor-name">Dr. Emily Blunt</h3>
-                    <p class="doctor-designation">Specialist - Neurosurgeon</p>
-                    <p class="doctor-department">Neurology</p>
-                    <button class="btn-request" onclick="openBookingModal(4, 'Dr. Emily Blunt')">Request Appointment</button>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Section 3: Orthopedics -->
-    <section class="department-section">
-        <h2 class="section-title">Orthopedics</h2>
-        <div class="doctors-grid">
-            <!-- Doc 1 (Hospital 3) -->
-            <div class="doctor-card" data-hospital="3">
-                <div class="card-image-container">
-                    <div class="doctor-img-placeholder">👨‍⚕️</div>
-                </div>
-                <div class="card-content">
-                    <h3 class="doctor-name">Dr. Mark Wood</h3>
-                    <p class="doctor-designation">Senior Consultant - Orthopedic Surgeon</p>
-                    <p class="doctor-department">Orthopedics</p>
-                    <button class="btn-request" onclick="openBookingModal(5, 'Dr. Mark Wood')">Request Appointment</button>
-                </div>
-            </div>
-            <!-- Doc 2 (Hospital 3) -->
-            <div class="doctor-card" data-hospital="3">
-                <div class="card-image-container">
-                    <div class="doctor-img-placeholder">👩‍⚕️</div>
-                </div>
-                <div class="card-content">
-                    <h3 class="doctor-name">Dr. Lisa Ray</h3>
-                    <p class="doctor-designation">Sports Medicine Specialist</p>
-                    <p class="doctor-department">Orthopedics</p>
-                    <button class="btn-request" onclick="openBookingModal(6, 'Dr. Lisa Ray')">Request Appointment</button>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Section 4: Pediatrics -->
-    <section class="department-section">
-        <h2 class="section-title">Pediatrics</h2>
-        <div class="doctors-grid">
-            <!-- Doc 1 (Hospital 4) -->
-            <div class="doctor-card" data-hospital="4">
-                <div class="card-image-container">
-                    <div class="doctor-img-placeholder">👩‍⚕️</div>
-                </div>
-                <div class="card-content">
-                    <h3 class="doctor-name">Dr. John Green</h3>
-                    <p class="doctor-designation">Senior Consultant - Pediatrician</p>
-                    <p class="doctor-department">Pediatrics</p>
-                    <button class="btn-request" onclick="openBookingModal(7, 'Dr. John Green')">Request Appointment</button>
-                </div>
-            </div>
-            <!-- Doc 2 (Hospital 4) -->
-            <div class="doctor-card" data-hospital="4">
-                <div class="card-image-container">
-                    <div class="doctor-img-placeholder">👨‍⚕️</div>
-                </div>
-                <div class="card-content">
-                    <h3 class="doctor-name">Dr. Mary Pop</h3>
-                    <p class="doctor-designation">Pediatric Surgeon</p>
-                    <p class="doctor-department">Pediatrics</p>
-                    <button class="btn-request" onclick="openBookingModal(8, 'Dr. Mary Pop')">Request Appointment</button>
-                </div>
-            </div>
-            
-        </div>
-        
-    </section>
-
-    <!-- Section 5: General Medicine -->
-    <section class="department-section">
-        <h2 class="section-title">General Medicine</h2>
-        <div class="doctors-grid">
-            <!-- Doc 1 (Hospital 5) -->
-            <div class="doctor-card" data-hospital="5">
-                <div class="card-image-container">
-                    <div class="doctor-img-placeholder">👨‍⚕️</div>
-                </div>
-                <div class="card-content">
-                    <h3 class="doctor-name">Dr. James King</h3>
-                    <p class="doctor-designation">Consultant - General Physician</p>
-                    <p class="doctor-department">General Medicine</p>
-                    <button class="btn-request" onclick="openBookingModal(9, 'Dr. James King')">Request Appointment</button>
-                </div>
-            </div>
-            <!-- Doc 2 (Hospital 5) -->
-            <div class="doctor-card" data-hospital="5">
-                <div class="card-image-container">
-                    <div class="doctor-img-placeholder">👩‍⚕️</div>
-                </div>
-                <div class="card-content">
-                    <h3 class="doctor-name">Dr. Anna Scott</h3>
-                    <p class="doctor-designation">Senior Consultant - Internal Medicine</p>
-                    <p class="doctor-department">General Medicine</p>
-                    <button class="btn-request" onclick="openBookingModal(10, 'Dr. Anna Scott')">Request Appointment</button>
-                </div>
-            </div>
-        </div>
-    </section>
+        </section>
+        <?php endforeach; ?>
+    <?php endif; ?>
 
     <!-- Booking Modal -->
     <div id="bookingModal" class="modal">
@@ -896,7 +922,6 @@
                     <label for="name">Full Name</label>
                     <input type="text" id="name" name="name" required>
                 </div>
-
          
                 <div class="form-group">
                     <label for="email">Email Address</label>
@@ -933,24 +958,326 @@
         </div>
     </div>
 
-    <script>
+     <!-- Authentication Modal -->
+     <div class="modal-overlay" id="authModal">
+         <div class="auth-modal">
+             <button class="modal-close" onclick="closeModal()">&times;</button>
+ 
+             <div class="auth-tabs">
+                 <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Patient Login</button>
+                 <button class="auth-tab" id="tab-register" onclick="switchTab('register')">Register</button>
+             </div>
+ 
+             <div class="auth-body">
+                 <!-- Login Form -->
+                 <div class="auth-form active" id="form-login">
+                     <form id="loginFormTag">
+                         <div class="form-group">
+                             <label for="login-email">Email or Patient ID</label>
+                             <input type="text" id="login-email" class="form-control"
+                                 placeholder="Enter your email or ID" required>
+                             <div class="error-msg"></div>
+                         </div>
+ 
+                         <div class="form-group">
+                             <label for="login-pass">Password</label>
+                             <input type="password" id="login-pass" class="form-control"
+                                 placeholder="Enter your password" required>
+                             <div class="error-msg"></div>
+                         </div>
+ 
+                         <button type="submit" class="btn btn-primary btn-full">Login to Dashboard</button>
+ 
+                         <div class="form-footer">
+                             <p>Don't have an account? <a href="#" onclick="switchTab('register')">Register here</a></p>
+                         </div>
+                     </form>
+                 </div>
+ 
+                 <!-- Register Form -->
+                 <div class="auth-form" id="form-register">
+                     <form id="registerFormTag">
+                         <div class="form-group">
+                             <label for="reg-email">Email Address</label>
+                             <input type="email" id="reg-email" class="form-control" placeholder="your@email.com"
+                                 required>
+                             <div class="error-msg"></div>
+                         </div>
+ 
+                         <div class="form-group">
+                             <label for="reg-phone">Phone Number</label>
+                             <input type="tel" id="reg-phone" class="form-control" placeholder="9876543210" required>
+                             <div class="error-msg"></div>
+                         </div>
+ 
+                         <div class="form-group">
+                             <label for="reg-pass">Password</label>
+                             <input type="password" id="reg-pass" class="form-control" placeholder="Create a password"
+                                 required>
+                             <div class="error-msg"></div>
+                         </div>
+ 
+                         <div class="form-group">
+                             <label for="reg-confirm-pass">Re-enter Password</label>
+                             <input type="password" id="reg-confirm-pass" class="form-control"
+                                 placeholder="Confirm your password" required>
+                             <div class="error-msg"></div>
+                         </div>
+ 
+                         <button type="submit" class="btn btn-primary btn-full">Create Account</button>
+ 
+                         <div class="form-footer">
+                             <p>Already have an account? <a href="#" onclick="switchTab('login')">Login here</a></p>
+                         </div>
+                     </form>
+                 </div>
+ 
+             </div>
+         </div>
+     </div>
+     </div>
+ 
+     <script>
+         // Modal Logic
+         // Modal Logic
+         const modalOverlay = document.getElementById('authModal');
+         const loginTab = document.getElementById('tab-login');
+         const registerTab = document.getElementById('tab-register');
+ 
+         const loginForm = document.getElementById('form-login');
+         const registerForm = document.getElementById('form-register');
+ 
+ 
+         function openModal(type) {
+             modalOverlay.classList.add('active');
+             document.body.style.overflow = 'hidden';
+             if (type === 'register') {
+                 switchTab('register');
+             } else {
+                 switchTab('login');
+             }
+         }
+ 
+ 
+         function closeModal() {
+             modalOverlay.classList.remove('active');
+             document.body.style.overflow = '';
+             // Reset patient forms
+             document.getElementById('loginFormTag').reset();
+             document.getElementById('registerFormTag').reset();
+             clearAllErrors();
+         }
+ 
+ 
+         function switchTab(tab) {
+             // Remove active class from all
+             loginTab.classList.remove('active');
+             registerTab.classList.remove('active');
+ 
+             loginForm.classList.remove('active');
+             registerForm.classList.remove('active');
+ 
+             // Add active class to selected
+             if (tab === 'login') {
+                 loginTab.classList.add('active');
+                 loginForm.classList.add('active');
+             } else if (tab === 'register') {
+                 registerTab.classList.add('active');
+                 registerForm.classList.add('active');
+             }
+         }
+ 
+         function clearAllErrors() {
+             document.querySelectorAll('.error-msg').forEach(el => el.style.display = 'none');
+             document.querySelectorAll('.form-control').forEach(el => el.classList.remove('error'));
+         }
+ 
+         // Close on outside click
+         modalOverlay.addEventListener('click', (e) => {
+             if (e.target === modalOverlay) closeModal();
+         });
+ 
+ 
+         // Error helper
+         function showError(input, message) {
+             const formGroup = input.closest('.form-group');
+             input.classList.add('error');
+             const errorDiv = formGroup.querySelector('.error-msg');
+             errorDiv.innerText = message;
+             errorDiv.style.display = 'block';
+         }
+ 
+         function clearErrors() {
+             document.querySelectorAll('.error-msg').style.display = 'none';
+             document.querySelectorAll('.form-control').classList.remove('error');
+         }
+ 
+         // Generate Unique Patient ID
+         function generatePatientID() {
+             const year = new Date().getFullYear();
+             const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+             const nums = '0123456789';
+ 
+             // Generate 3 random letters
+             let randomChars = '';
+             for (let i = 0; i < 3; i++) {
+                 randomChars += chars.charAt(Math.floor(Math.random() * chars.length));
+             }
+ 
+             // Generate 3 random numbers
+             let randomNums = '';
+             for (let i = 0; i < 3; i++) {
+                 randomNums += nums.charAt(Math.floor(Math.random() * nums.length));
+             }
+ 
+             // Mix them
+             let combined = (randomChars + randomNums).split('');
+             // Fisher-Yates shuffle
+             for (let i = combined.length - 1; i > 0; i--) {
+                 const j = Math.floor(Math.random() * (i + 1));
+                 [combined[i], combined[j]] = [combined[j], combined[i]];
+             }
+ 
+             return `PAT-${year}-${combined.join('')}`;
+         }
+ 
+         // Registration Handler
+         document.getElementById('registerFormTag').addEventListener('submit', function (e) {
+             e.preventDefault();
+ 
+             const emailInput = document.getElementById('reg-email');
+             const phoneInput = document.getElementById('reg-phone');
+             const passInput = document.getElementById('reg-pass');
+             const confirmPassInput = document.getElementById('reg-confirm-pass');
+ 
+             // Clear previous errors
+             document.querySelectorAll('.error-msg').forEach(el => el.style.display = 'none');
+             document.querySelectorAll('.form-control').forEach(el => el.classList.remove('error'));
+ 
+             let isValid = true;
+ 
+             // Email Validation
+             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+             if (!emailRegex.test(emailInput.value.trim())) {
+                 showError(emailInput, 'Please enter a valid email address.');
+                 isValid = false;
+             }
+ 
+             // Phone Validation (basic 10 digit)
+             const phone = phoneInput.value.replace(/[^0-9]/g, '');
+             if (phone.length < 10) {
+                 showError(phoneInput, 'Please enter a valid phone number (at least 10 digits).');
+                 isValid = false;
+             }
+ 
+             // Password Validation
+             if (passInput.value.length < 6) {
+                 showError(passInput, 'Password must be at least 6 characters.');
+                 isValid = false;
+             }
+ 
+             // Match Validation
+             if (passInput.value !== confirmPassInput.value) {
+                 showError(confirmPassInput, 'Passwords do not match.');
+                 isValid = false;
+             }
+ 
+             if (isValid) {
+                 const patientID = generatePatientID();
+                 const formData = {
+                     email: emailInput.value.trim(),
+                     phone: phone,
+                     password: passInput.value,
+                     patientID: patientID
+                 };
+ 
+                 fetch('register_patient.php', {
+                     method: 'POST',
+                     headers: {
+                         'Content-Type': 'application/json'
+                     },
+                     body: JSON.stringify(formData)
+                 })
+                     .then(response => response.json())
+                     .then(data => {
+                         if (data.success) {
+                             alert(`Registration Successful!\n\nYour Unique Patient ID: ${patientID}\n\nPlease save this ID for future login.`);
+                             // Switch to Login
+                             switchTab('login');
+                             document.getElementById('login-email').value = formData.email; // Auto-fill
+                             document.getElementById('registerFormTag').reset();
+                         } else {
+                             showError(emailInput, data.message || 'Registration failed.');
+                         }
+                     })
+                     .catch(error => {
+                         console.error('Error:', error);
+                         showError(emailInput, 'An error occurred. Please try again.');
+                     });
+             }
+         });
+ 
+         // Login Handler
+         document.getElementById('loginFormTag').addEventListener('submit', function (e) {
+             e.preventDefault();
+ 
+             const loginInput = document.getElementById('login-email');
+             const passInput = document.getElementById('login-pass');
+ 
+             const loginVal = loginInput.value.trim();
+             const passVal = passInput.value;
+ 
+             fetch('login_patient.php', {
+                 method: 'POST',
+                 headers: {
+                     'Content-Type': 'application/json'
+                 },
+                 body: JSON.stringify({
+                     loginId: loginVal,
+                     password: passVal
+                 })
+             })
+                 .then(response => response.json())
+                 .then(data => {
+                     if (data.success) {
+                         window.location.href = 'patients.php';
+                     } else {
+                         showError(passInput, data.message || 'Invalid email/ID or password.');
+                         loginInput.classList.add('error');
+                     }
+                 })
+                 .catch(error => {
+                     console.error('Error:', error);
+                     showError(passInput, 'An error occurred. Please try again.');
+                 });
+         });
+ 
+     </script>
+     <script>
         const modal = document.getElementById("bookingModal");
         const form = document.getElementById("bookingForm");
-        const timeSlotsContainer = document.getElementById("timeSlotsContainer");
         const submitBtn = document.getElementById("submitBtn");
 
         /* Custom Dropdown Logic */
-        function toggleDropdown() {
-            document.getElementById('hospitalDropdown').classList.toggle('open');
+        function toggleDropdown(id) {
+            // Close others
+            const allDropdowns = document.querySelectorAll('.custom-dropdown');
+            allDropdowns.forEach(d => {
+                if(d.id !== id) d.classList.remove('open');
+            });
+            document.getElementById(id).classList.toggle('open');
         }
 
-        function selectHospital(value, text) {
-            document.getElementById('hospitalFilter').value = value;
-            document.querySelector('.dropdown-selected').innerText = text;
-            document.getElementById('hospitalDropdown').classList.remove('open');
+        function selectFilter(type, value, text) {
+            const dropdownId = type === 'hospital' ? 'hospitalDropdown' : 'specDropdown';
+            const inputId = type === 'hospital' ? 'hospitalFilter' : 'specFilter';
             
-            // Re-render UI
-            document.querySelectorAll('.dropdown-option').forEach(opt => {
+            document.getElementById(inputId).value = value;
+            document.querySelector(`#${dropdownId} .dropdown-selected`).innerText = text;
+            document.getElementById(dropdownId).classList.remove('open');
+            
+            // Re-render UI highlight
+            document.querySelectorAll(`#${dropdownId} .dropdown-option`).forEach(opt => {
                 opt.classList.remove('selected');
                 if(opt.innerText === text) opt.classList.add('selected');
             });
@@ -960,27 +1287,35 @@
 
         function filterDoctors() {
             const selectedHospital = document.getElementById("hospitalFilter").value;
+            const selectedSpec = document.getElementById("specFilter").value;
+            
             const doctorCards = document.querySelectorAll(".doctor-card");
             const sections = document.querySelectorAll(".department-section");
 
             doctorCards.forEach(card => {
-                if (selectedHospital === "all" || card.dataset.hospital === selectedHospital) {
+                const hospitalMatch = (selectedHospital === "all" || card.dataset.hospital === selectedHospital);
+                // For card visibility, we mostly care if it matches the hospital filter
+                // However, we also need to respect specialization if we want to hide individual cards in a section
+                // But typically, the section itself represents the specialization.
+                // Since this page is grouped by Specialization, filtering by Spec effectively hides entire Sections.
+                
+                if (hospitalMatch) {
                     card.style.display = "flex";
                 } else {
                     card.style.display = "none";
                 }
             });
 
-            // Hide empty sections
+            // Hide sections based on Spec Filter AND if they contain visible cards
             sections.forEach(section => {
-                const visibleDoctors = section.querySelectorAll(".doctor-card[style='display: flex;']").length;
-                let hasVisible = false;
-                 // Re-check visibility style
+                const specMatch = (selectedSpec === "all" || section.dataset.specialization === selectedSpec);
+                
+                let hasVisibleCards = false;
                  section.querySelectorAll(".doctor-card").forEach(c => {
-                     if(c.style.display !== 'none') hasVisible = true;
+                     if(c.style.display !== 'none') hasVisibleCards = true;
                  });
                  
-                 if(hasVisible) {
+                 if(hasVisibleCards && specMatch) {
                      section.style.display = "block";
                  } else {
                      section.style.display = "none";
@@ -1095,9 +1430,6 @@
             const timeColumn = document.getElementById("timeColumn");
             
             if (!date) return;
-            
-            // Show loading
-            // timeColumn.innerHTML = '<div class="picker-item">Loading...</div>';
 
             fetch(`get_slots.php?doctor_id=${doctorId}&date=${date}&t=${new Date().getTime()}`)
                 .then(response => response.json())
