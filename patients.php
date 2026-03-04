@@ -11,6 +11,117 @@ if (!isset($_SESSION['patient_id'])) {
 
 $patient_id = $_SESSION['patient_id'];
 
+// --- Handle Document Uploads Logic (Previously in upload_documents.php) ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_FILES['prescriptions']) || isset($_FILES['medical_reports']) || isset($_FILES['scans']))) {
+    header('Content-Type: application/json');
+
+    // Allowed file types
+    $allowed_extensions = ['pdf', 'jpg', 'jpeg', 'png'];
+    $max_size = 10 * 1024 * 1024; // 10 MB
+    $categories = ['prescriptions', 'medical_reports', 'scans'];
+    $base_dir = __DIR__ . '/uploads/patients/';
+
+    if (!is_dir($base_dir)) {
+        mkdir($base_dir, 0755, true);
+    }
+
+    // Fetch existing documents
+    $sql_docs = "SELECT documents FROM patients WHERE patient_id = ?";
+    $stmt_docs = $conn->prepare($sql_docs);
+    $stmt_docs->bind_param("s", $patient_id);
+    $stmt_docs->execute();
+    $res_docs = $stmt_docs->get_result();
+    $row_docs = $res_docs->fetch_assoc();
+    $stmt_docs->close();
+
+    $existing_docs = [];
+    if (!empty($row_docs['documents'])) {
+        $existing_docs = json_decode($row_docs['documents'], true) ?? [];
+    }
+
+    $uploaded = [];
+    $errors = [];
+
+    foreach ($categories as $category) {
+        if (!isset($_FILES[$category]) || $_FILES[$category]['error'][0] === UPLOAD_ERR_NO_FILE) {
+            continue;
+        }
+
+        $patient_folder = $base_dir . $patient_id . '/' . $category . '/';
+        if (!is_dir($patient_folder)) {
+            mkdir($patient_folder, 0755, true);
+        }
+
+        $files = $_FILES[$category];
+        $file_count = is_array($files['name']) ? count($files['name']) : 1;
+        $titles = $_POST[$category . '_title'] ?? [];
+        $dates = $_POST[$category . '_date'] ?? [];
+
+        for ($i = 0; $i < $file_count; $i++) {
+            $name = is_array($files['name']) ? $files['name'][$i] : $files['name'];
+            $tmp_name = is_array($files['tmp_name']) ? $files['tmp_name'][$i] : $files['tmp_name'];
+            $error = is_array($files['error']) ? $files['error'][$i] : $files['error'];
+            $size = is_array($files['size']) ? $files['size'][$i] : $files['size'];
+
+            if ($error !== UPLOAD_ERR_OK) {
+                $errors[] = "Error uploading $name in $category";
+                continue;
+            }
+
+            if ($size > $max_size) {
+                $errors[] = "$name exceeds 10MB limit";
+                continue;
+            }
+
+            $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+            if (!in_array($ext, $allowed_extensions)) {
+                $errors[] = "$name: Invalid file type";
+                continue;
+            }
+
+            $safe_name = uniqid($patient_id . '_', true) . '.' . $ext;
+            $dest_path = $patient_folder . $safe_name;
+            $public_url = 'uploads/patients/' . $patient_id . '/' . $category . '/' . $safe_name;
+
+            if (move_uploaded_file($tmp_name, $dest_path)) {
+                $uploaded[] = [
+                    'category' => $category,
+                    'original_name' => $name,
+                    'file_path' => $public_url,
+                    'custom_title' => $titles[$i] ?? '',
+                    'custom_date' => $dates[$i] ?? '',
+                    'uploaded_at' => date('Y-m-d H:i:s'),
+                ];
+            } else {
+                $errors[] = "Failed to save $name";
+            }
+        }
+    }
+
+    if (!empty($uploaded)) {
+        $merged = array_merge($existing_docs, $uploaded);
+        $docs_json = json_encode($merged, JSON_UNESCAPED_UNICODE);
+        $update = $conn->prepare("UPDATE patients SET documents = ? WHERE patient_id = ?");
+        $update->bind_param("ss", $docs_json, $patient_id);
+        $update->execute();
+        $update->close();
+
+        echo json_encode([
+            'success' => true,
+            'message' => count($uploaded) . ' file(s) uploaded successfully.',
+            'uploaded' => $uploaded,
+            'errors' => $errors,
+        ]);
+    } else {
+        echo json_encode([
+            'success' => false,
+            'message' => !empty($errors) ? implode(', ', $errors) : 'No files were uploaded.',
+            'errors' => $errors,
+        ]);
+    }
+    exit();
+}
+
 // Prepare statement to fetch patient details
 $sql = "SELECT * FROM patients WHERE patient_id = ?";
 $stmt = $conn->prepare($sql);
@@ -32,7 +143,8 @@ if (!$patient) {
 }
 
 // Helper function to handle NULL/Empty values
-function displayField($value) {
+function displayField($value)
+{
     return (!empty($value)) ? htmlspecialchars($value) : '<span class="not-provided">Not provided</span>';
 }
 
@@ -55,11 +167,11 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Patient Dashboard - Med Buddy</title>
+    <title>Patient Profile - Med Buddy</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Using Remix Icon -->
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    
+
     <style>
         :root {
             /* Inherited Theme from Index */
@@ -72,13 +184,13 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
             --white: #FFFFFF;
             --card-bg: #FFFFFF;
             --border-color: #E5E7EB;
-            
+
             /* Dashboard Specific */
             --sidebar-width: 260px;
             --sidebar-bg: #F3F4F6;
             --header-height: 70px;
             --dashboard-bg: #F8FAFC;
-        
+
             --container-padding: 5%;
             --border-radius: 12px;
             --transition: all 0.3s ease;
@@ -252,7 +364,8 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
         /* Layout Grid (Old UI) */
         .grid-layout {
             display: grid;
-            grid-template-columns: 1.5fr 1fr; /* Summary vs Appointment */
+            grid-template-columns: 1.5fr 1fr;
+            /* Summary vs Appointment */
             gap: 2rem;
             margin-bottom: 3rem;
         }
@@ -266,9 +379,10 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
             border: 1px solid rgba(0, 102, 204, 0.1);
             height: 100%;
         }
-        
+
         .summary-header {
-            background-color: #FEF3C7; /* Soft yellow accent */
+            background-color: #FEF3C7;
+            /* Soft yellow accent */
             padding: 1.5rem 2rem;
             font-weight: 600;
             color: #92400E;
@@ -309,7 +423,7 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
             border-radius: 20px;
             padding: 1.5rem;
             border: 1px solid var(--border-color);
-            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
             height: 100%;
         }
 
@@ -324,14 +438,14 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
             font-size: 1.1rem;
             font-weight: 700;
         }
-        
+
         .doctor-preview {
             display: flex;
             align-items: center;
             gap: 1rem;
             margin-bottom: 1.5rem;
         }
-        
+
         .doc-avatar {
             width: 50px;
             height: 50px;
@@ -347,7 +461,7 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
             font-size: 1rem;
             font-weight: 600;
         }
-        
+
         .doc-info p {
             font-size: 0.9rem;
             color: var(--text-light);
@@ -414,13 +528,13 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
             border-radius: var(--border-radius);
             padding: 1.5rem;
             border: 1px solid var(--border-color);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
             transition: var(--transition);
         }
 
         .detail-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 16px rgba(0,0,0,0.05);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.05);
             border-color: rgba(0, 102, 204, 0.3);
         }
 
@@ -477,8 +591,21 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
             font-size: 0.85rem;
             font-weight: 600;
         }
-        .blood-group { background: #fee2e2; color: #991b1b; }
-        .condition-tag { display: inline-block; background: #e0f2fe; color: #075985; padding: 2px 8px; border-radius: 4px; margin-bottom: 4px; font-size: 0.85rem; }
+
+        .blood-group {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .condition-tag {
+            display: inline-block;
+            background: #e0f2fe;
+            color: #075985;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-bottom: 4px;
+            font-size: 0.85rem;
+        }
 
         /* Report Grid & Visits (Old UI) */
         .reports-section {
@@ -521,10 +648,10 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
             gap: 1rem;
             transition: var(--transition);
         }
-        
+
         .report-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
             border-color: var(--primary-color);
         }
 
@@ -537,10 +664,17 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
             justify-content: center;
             font-size: 1.25rem;
         }
-        
-        .icon-red { background: #FEF2F2; color: #EF4444; }
-        .icon-blue { background: #EBF8FF; color: #3182CE; }
-        
+
+        .icon-red {
+            background: #FEF2F2;
+            color: #EF4444;
+        }
+
+        .icon-blue {
+            background: #EBF8FF;
+            color: #3182CE;
+        }
+
         .report-info {
             flex: 1;
         }
@@ -568,9 +702,9 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
             margin-bottom: 1rem;
             transition: var(--transition);
         }
-        
+
         .visit-card:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
         }
 
         .visit-left {
@@ -578,7 +712,7 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
             align-items: center;
             gap: 1rem;
         }
-        
+
         .btn-view {
             padding: 0.5rem 1rem;
             background: #2563EB;
@@ -600,17 +734,17 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
             flex-wrap: wrap;
             gap: 2rem;
         }
-        
+
         .help-text h3 {
             margin-bottom: 0.5rem;
             color: var(--text-dark);
         }
-        
+
         .contact-methods {
             display: flex;
             gap: 2rem;
         }
-        
+
         .contact-item {
             display: flex;
             align-items: center;
@@ -618,7 +752,7 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
             color: var(--text-dark);
             font-weight: 500;
         }
-        
+
         .contact-item i {
             color: var(--primary-color);
         }
@@ -628,6 +762,7 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
             .grid-layout {
                 grid-template-columns: 1fr;
             }
+
             .welcome-banner-img {
                 display: none;
             }
@@ -638,24 +773,32 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
                 transform: translateX(-100%);
                 transition: transform 0.3s ease;
             }
+
             .sidebar.active {
                 transform: translateX(0);
             }
+
             .main-content {
                 margin-left: 0;
             }
+
             .dashboard-container {
                 padding: 1rem;
             }
+
             .help-container {
                 flex-direction: column;
                 align-items: flex-start;
             }
+
             .contact-methods {
                 flex-direction: column;
                 gap: 1rem;
             }
-            .profile-grid { grid-template-columns: 1fr; }
+
+            .profile-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -670,7 +813,7 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
         </a>
 
         <ul class="sidebar-menu">
-            <li><a href="#" class="active"><i class="ri-dashboard-fill"></i> Dashboard</a></li>
+            <li><a href="#" class="active"><i class="ri-user-settings-fill"></i> My Profile</a></li>
             <li><a href="#"><i class="ri-file-user-line"></i> My Profile</a></li>
             <li><a href="appointment.php"><i class="ri-calendar-check-line"></i> Book Appointment</a></li>
             <li><a href="#"><i class="ri-notification-3-line"></i> Notifications</a></li>
@@ -682,20 +825,23 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
         <!-- Top Header -->
         <div class="top-bar">
             <div class="top-bar-info">
-                <div class="patient-id">Patient ID: <span><?php echo displayField($patient['patient_id']); ?></span></div>
+                <div class="patient-id">Patient ID: <span><?php echo displayField($patient['patient_id']); ?></span>
+                </div>
                 <div class="user-profile">
-                    <span>Welcome, <?php echo displayField($patient['full_name']); ?></span> | <a href="logout.php" onclick="event.preventDefault(); document.cookie = 'PHPSESSID=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'; window.location.href='logout.php';" class="logout-link">Logout</a>
+                    <span>Welcome, <?php echo displayField($patient['full_name']); ?></span> | <a href="logout.php"
+                        onclick="event.preventDefault(); document.cookie = 'PHPSESSID=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'; window.location.href='logout.php';"
+                        class="logout-link">Logout</a>
                 </div>
             </div>
         </div>
 
-        <div class="dashboard-container">
-            
+        <div class="profile-container" style="padding: 2rem 5% 4rem;">
+
             <!-- Welcome Header -->
             <div class="welcome-section">
                 <div class="welcome-text">
                     <h1>Welcome Back, <?php echo $firstName; ?></h1>
-                    <p>Here is your personal health dashboard.</p>
+                    <p>Manage your health records and personal information.</p>
                 </div>
                 <button onclick="openUpdateModal()" class="btn-update">
                     <i class="ri-edit-box-line"></i> Update Profile
@@ -708,11 +854,14 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
                 <div class="summary-card">
                     <div class="summary-header">Patient Health Summary</div>
                     <div class="summary-content">
-                        <div class="info-row"><span>Name:</span> <?php echo displayField($patient['full_name']); ?></div>
+                        <div class="info-row"><span>Name:</span> <?php echo displayField($patient['full_name']); ?>
+                        </div>
                         <div class="info-row"><span>Age:</span> <?php echo $age; ?></div>
-                        <div class="info-row"><span>Blood Group:</span> <?php echo !empty($patient['blood_group']) ? htmlspecialchars($patient['blood_group']) : 'N/A'; ?></div>
-                        <div class="info-row"><span>Conditions:</span> 
-                            <?php 
+                        <div class="info-row"><span>Blood Group:</span>
+                            <?php echo !empty($patient['blood_group']) ? htmlspecialchars($patient['blood_group']) : 'N/A'; ?>
+                        </div>
+                        <div class="info-row"><span>Conditions:</span>
+                            <?php
                             if (!empty($patient['chronic_conditions'])) {
                                 echo htmlspecialchars(substr($patient['chronic_conditions'], 0, 30)) . (strlen($patient['chronic_conditions']) > 30 ? '...' : '');
                             } else {
@@ -720,7 +869,7 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
                             }
                             ?>
                         </div>
-                        
+
                         <a href="#" class="download-link">
                             <i class="ri-download-cloud-2-line"></i> Download All Records
                         </a>
@@ -733,7 +882,7 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
                         <h3>Upcoming Appointment</h3>
                         <a href="#"><i class="ri-arrow-right-line" style="color: var(--text-light);"></i></a>
                     </div>
-                    
+
                     <div class="doctor-preview">
                         <div class="doc-avatar">👨‍⚕️</div>
                         <div class="doc-info">
@@ -741,7 +890,7 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
                             <p>Cardiologist</p>
                         </div>
                     </div>
-                    
+
                     <div class="appt-meta">
                         <span>Date: 25/04/2024</span>
                         <span>10:00 AM</span>
@@ -760,7 +909,7 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
             </div>
 
             <div class="profile-grid">
-                
+
                 <!-- Personal Information -->
                 <div class="detail-card">
                     <div class="card-title">
@@ -780,7 +929,8 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Blood Group</span>
-                        <span class="detail-value"><?php echo !empty($patient['blood_group']) ? '<span class="badge blood-group">' . htmlspecialchars($patient['blood_group']) . '</span>' : displayField(''); ?></span>
+                        <span
+                            class="detail-value"><?php echo !empty($patient['blood_group']) ? '<span class="badge blood-group">' . htmlspecialchars($patient['blood_group']) . '</span>' : displayField(''); ?></span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Height</span>
@@ -831,27 +981,28 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
                     <div class="detail-row" style="display: block;">
                         <span class="detail-label" style="display: block; margin-bottom: 0.5rem;">Allergies</span>
                         <div class="detail-value" style="text-align: left; max-width: 100%;">
-                            <?php 
-                                if (!empty($patient['allergies'])) {
-                                    echo htmlspecialchars($patient['allergies']);
-                                } else {
-                                    echo displayField('');
-                                }
+                            <?php
+                            if (!empty($patient['allergies'])) {
+                                echo htmlspecialchars($patient['allergies']);
+                            } else {
+                                echo displayField('');
+                            }
                             ?>
                         </div>
                     </div>
                     <div class="detail-row" style="display: block; margin-top: 1rem;">
-                        <span class="detail-label" style="display: block; margin-bottom: 0.5rem;">Chronic Conditions</span>
+                        <span class="detail-label" style="display: block; margin-bottom: 0.5rem;">Chronic
+                            Conditions</span>
                         <div class="detail-value" style="text-align: left; max-width: 100%;">
-                            <?php 
-                                if (!empty($patient['chronic_conditions'])) {
-                                    $conditions = explode(',', $patient['chronic_conditions']);
-                                    foreach ($conditions as $cond) {
-                                        echo '<span class="condition-tag">' . htmlspecialchars(trim($cond)) . '</span> ';
-                                    }
-                                } else {
-                                    echo displayField(''); 
+                            <?php
+                            if (!empty($patient['chronic_conditions'])) {
+                                $conditions = explode(',', $patient['chronic_conditions']);
+                                foreach ($conditions as $cond) {
+                                    echo '<span class="condition-tag">' . htmlspecialchars(trim($cond)) . '</span> ';
                                 }
+                            } else {
+                                echo displayField('');
+                            }
                             ?>
                         </div>
                     </div>
@@ -864,14 +1015,142 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Contact Name</span>
-                        <span class="detail-value"><?php echo displayField($patient['emergency_contact_name']); ?></span>
+                        <span
+                            class="detail-value"><?php echo displayField($patient['emergency_contact_name']); ?></span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Phone Number</span>
-                        <span class="detail-value"><?php echo displayField($patient['emergency_contact_phone']); ?></span>
+                        <span
+                            class="detail-value"><?php echo displayField($patient['emergency_contact_phone']); ?></span>
                     </div>
                 </div>
             </div>
+
+            <!-- Document Uploads Section (Moved here from modal) -->
+            <div class="section-header-large" style="margin-top:2.5rem; border-bottom: none;">
+                <span style="font-size: 1.8rem;">Patient Forms</span>
+            </div>
+            <div
+                style="margin-top: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 1.5rem;">
+                <span style="font-size: 1.1rem; font-weight: 700; color: var(--text-dark);">Document Uploads</span>
+            </div>
+
+
+            <!-- Uploaded Patient Documents Section -->
+            <?php
+            $patient_docs = [];
+            if (!empty($patient['documents'])) {
+                $patient_docs = json_decode($patient['documents'], true) ?? [];
+            }
+            if (!empty($patient_docs)):
+                $prescriptions = array_filter($patient_docs, fn($d) => $d['category'] === 'prescriptions');
+                $medical_reports = array_filter($patient_docs, fn($d) => $d['category'] === 'medical_reports');
+                $scans = array_filter($patient_docs, fn($d) => $d['category'] === 'scans');
+                ?>
+                    <div class="section-header-large" style="margin-top:2.5rem;">
+                        <span><i class="ri-folder-health-line" style="color:var(--primary-color);margin-right:8px;"></i>My
+                            Uploaded Documents</span>
+                    </div>
+                    <div class="docs-outer-grid">
+
+                        <!-- Prescriptions -->
+                        <?php if (!empty($prescriptions)): ?>
+                                <div class="docs-category-card">
+                                    <div class="docs-cat-header" style="background:linear-gradient(135deg,#7C3AED22,#7C3AED11);">
+                                        <i class="ri-capsule-line" style="color:#7C3AED;"></i> Prescriptions
+                                    </div>
+                                    <div class="docs-file-list">
+                                        <?php foreach ($prescriptions as $doc): ?>
+                                                <a href="<?php echo htmlspecialchars($doc['file_path']); ?>" target="_blank"
+                                                    class="doc-file-item">
+                                                    <div class="doc-file-icon" style="background:#F3E8FF;color:#7C3AED;">
+                                                        <i
+                                                            class="ri-<?php echo (pathinfo($doc['file_path'], PATHINFO_EXTENSION) === 'pdf') ? 'file-pdf-line' : 'image-line'; ?>"></i>
+                                                    </div>
+                                                    <div class="doc-file-info">
+                                                        <span class="doc-file-name">
+                                                            <?php echo !empty($doc['custom_title']) ? htmlspecialchars($doc['custom_title']) : htmlspecialchars($doc['original_name']); ?>
+                                                        </span>
+                                                        <span class="doc-file-date">
+                                                            <?php
+                                                            $displayDate = !empty($doc['custom_date']) ? $doc['custom_date'] : $doc['uploaded_at'];
+                                                            echo date('d M Y', strtotime($displayDate));
+                                                            ?>
+                                                        </span>
+                                                    </div>
+                                                    <i class="ri-external-link-line doc-dl-icon"></i>
+                                                </a>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                        <?php endif; ?>
+
+                        <!-- Medical Reports -->
+                        <?php if (!empty($medical_reports)): ?>
+                                <div class="docs-category-card">
+                                    <div class="docs-cat-header" style="background:linear-gradient(135deg,#0284C722,#0284C711);">
+                                        <i class="ri-file-list-3-line" style="color:#0284C7;"></i> Medical Reports
+                                    </div>
+                                    <div class="docs-file-list">
+                                        <?php foreach ($medical_reports as $doc): ?>
+                                                <a href="<?php echo htmlspecialchars($doc['file_path']); ?>" target="_blank"
+                                                    class="doc-file-item">
+                                                    <div class="doc-file-icon" style="background:#E0F2FE;color:#0284C7;">
+                                                        <i
+                                                            class="ri-<?php echo (pathinfo($doc['file_path'], PATHINFO_EXTENSION) === 'pdf') ? 'file-pdf-line' : 'image-line'; ?>"></i>
+                                                    </div>
+                                                    <div class="doc-file-info">
+                                                        <span class="doc-file-name">
+                                                            <?php echo !empty($doc['custom_title']) ? htmlspecialchars($doc['custom_title']) : htmlspecialchars($doc['original_name']); ?>
+                                                        </span>
+                                                        <span class="doc-file-date">
+                                                            <?php
+                                                            $displayDate = !empty($doc['custom_date']) ? $doc['custom_date'] : $doc['uploaded_at'];
+                                                            echo date('d M Y', strtotime($displayDate));
+                                                            ?>
+                                                        </span>
+                                                    </div>
+                                                    <i class="ri-external-link-line doc-dl-icon"></i>
+                                                </a>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                        <?php endif; ?>
+
+                        <!-- Scans -->
+                        <?php if (!empty($scans)): ?>
+                                <div class="docs-category-card">
+                                    <div class="docs-cat-header" style="background:linear-gradient(135deg,#05996922,#05996911);">
+                                        <i class="ri-scan-line" style="color:#059669;"></i> Scans
+                                    </div>
+                                    <div class="docs-file-list">
+                                        <?php foreach ($scans as $doc): ?>
+                                                <a href="<?php echo htmlspecialchars($doc['file_path']); ?>" target="_blank"
+                                                    class="doc-file-item">
+                                                    <div class="doc-file-icon" style="background:#D1FAE5;color:#059669;">
+                                                        <i
+                                                            class="ri-<?php echo (pathinfo($doc['file_path'], PATHINFO_EXTENSION) === 'pdf') ? 'file-pdf-line' : 'image-line'; ?>"></i>
+                                                    </div>
+                                                    <div class="doc-file-info">
+                                                        <span class="doc-file-name">
+                                                            <?php echo !empty($doc['custom_title']) ? htmlspecialchars($doc['custom_title']) : htmlspecialchars($doc['original_name']); ?>
+                                                        </span>
+                                                        <span class="doc-file-date">
+                                                            <?php
+                                                            $displayDate = !empty($doc['custom_date']) ? $doc['custom_date'] : $doc['uploaded_at'];
+                                                            echo date('d M Y', strtotime($displayDate));
+                                                            ?>
+                                                        </span>
+                                                    </div>
+                                                    <i class="ri-external-link-line doc-dl-icon"></i>
+                                                </a>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                        <?php endif; ?>
+
+                    </div>
+            <?php endif; ?>
 
             <!-- Reports Section (Old UI) -->
             <section class="reports-section">
@@ -879,7 +1158,7 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
                     <h2 class="section-title">Reports & Scans</h2>
                     <a href="#" class="view-all">View All <i class="ri-arrow-right-s-line"></i></a>
                 </div>
-                
+
                 <div class="reports-grid">
                     <div class="report-card">
                         <div class="file-icon icon-red"><i class="ri-file-pdf-line"></i></div>
@@ -889,7 +1168,7 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
                         </div>
                         <div>24/04/2024</div>
                     </div>
-                    
+
                     <div class="report-card">
                         <div class="file-icon icon-blue"><i class="ri-image-line"></i></div>
                         <div class="report-info">
@@ -898,8 +1177,8 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
                         </div>
                         <div>23/04/2024</div>
                     </div>
-                    
-                     <div class="report-card">
+
+                    <div class="report-card">
                         <div class="file-icon icon-blue"><i class="ri-image-line"></i></div>
                         <div class="report-info">
                             <div class="report-name">Chest X-Ray</div>
@@ -907,7 +1186,7 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
                         </div>
                         <div>23/01/2024</div>
                     </div>
-                    
+
                     <div class="report-card">
                         <div class="file-icon icon-red"><i class="ri-file-pdf-line"></i></div>
                         <div class="report-info">
@@ -921,13 +1200,13 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
 
             <!-- Doctor Visits (Old UI) -->
             <section class="visits-section">
-                 <div class="section-header-row">
+                <div class="section-header-row">
                     <h2 class="section-title">My Doctor Visits</h2>
                     <a href="#" class="view-all">View All <i class="ri-arrow-right-s-line"></i></a>
                 </div>
-                
+
                 <div class="doctors-grid">
-                     <div class="visit-card">
+                    <div class="visit-card">
                         <div class="visit-left">
                             <div class="doc-avatar">👨‍⚕️</div>
                             <div class="doc-info">
@@ -938,7 +1217,7 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
                         <div style="font-weight: 500;">12/01/2024</div>
                         <a href="#" class="btn-view">View Details</a>
                     </div>
-                    
+
                     <div class="visit-card">
                         <div class="visit-left">
                             <div class="doc-avatar">👩‍⚕️</div>
@@ -984,70 +1263,118 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
             <div class="modal-body">
                 <form id="updateProfileForm">
                     <!-- Personal Info -->
-                    <div class="form-section">
-                        <h3>Personal Information</h3>
+                    <div class="profile-form-card">
+                        <div class="card-title">
+                            <i class="ri-user-smile-line"></i> Personal Information
+                        </div>
                         <div class="grid-2">
                             <div class="form-group">
                                 <label>Full Name</label>
-                                <input type="text" name="full_name" value="<?php echo htmlspecialchars($patient['full_name'] ?? ''); ?>" required>
+                                <div class="input-with-icon">
+                                    <i class="ri-user-line"></i>
+                                    <input type="text" name="full_name"
+                                        value="<?php echo htmlspecialchars($patient['full_name'] ?? ''); ?>" required>
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label>Date of Birth</label>
-                                <input type="date" name="date_of_birth" value="<?php echo htmlspecialchars($patient['date_of_birth'] ?? ''); ?>">
+                                <div class="input-with-icon">
+                                    <i class="ri-calendar-line"></i>
+                                    <input type="date" name="date_of_birth"
+                                        value="<?php echo htmlspecialchars($patient['date_of_birth'] ?? ''); ?>">
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label>Gender</label>
                                 <select name="gender">
                                     <option value="">Select</option>
-                                    <option value="Male" <?php if(($patient['gender'] ?? '') == 'Male') echo 'selected'; ?>>Male</option>
-                                    <option value="Female" <?php if(($patient['gender'] ?? '') == 'Female') echo 'selected'; ?>>Female</option>
-                                    <option value="Other" <?php if(($patient['gender'] ?? '') == 'Other') echo 'selected'; ?>>Other</option>
+                                    <option value="Male" <?php if (($patient['gender'] ?? '') == 'Male')
+                                        echo 'selected'; ?>>Male</option>
+                                    <option value="Female" <?php if (($patient['gender'] ?? '') == 'Female')
+                                        echo 'selected'; ?>>Female</option>
+                                    <option value="Other" <?php if (($patient['gender'] ?? '') == 'Other')
+                                        echo 'selected'; ?>>Other</option>
                                 </select>
                             </div>
                             <div class="form-group">
                                 <label>Blood Group</label>
                                 <select name="blood_group">
                                     <option value="">Select</option>
-                                    <option value="A+" <?php if(($patient['blood_group'] ?? '') == 'A+') echo 'selected'; ?>>A+</option>
-                                    <option value="A-" <?php if(($patient['blood_group'] ?? '') == 'A-') echo 'selected'; ?>>A-</option>
-                                    <option value="B+" <?php if(($patient['blood_group'] ?? '') == 'B+') echo 'selected'; ?>>B+</option>
-                                    <option value="B-" <?php if(($patient['blood_group'] ?? '') == 'B-') echo 'selected'; ?>>B-</option>
-                                    <option value="O+" <?php if(($patient['blood_group'] ?? '') == 'O+') echo 'selected'; ?>>O+</option>
-                                    <option value="O-" <?php if(($patient['blood_group'] ?? '') == 'O-') echo 'selected'; ?>>O-</option>
-                                    <option value="AB+" <?php if(($patient['blood_group'] ?? '') == 'AB+') echo 'selected'; ?>>AB+</option>
-                                    <option value="AB-" <?php if(($patient['blood_group'] ?? '') == 'AB-') echo 'selected'; ?>>AB-</option>
+                                    <option value="A+" <?php if (($patient['blood_group'] ?? '') == 'A+')
+                                        echo 'selected'; ?>>A+</option>
+                                    <option value="A-" <?php if (($patient['blood_group'] ?? '') == 'A-')
+                                        echo 'selected'; ?>>A-</option>
+                                    <option value="B+" <?php if (($patient['blood_group'] ?? '') == 'B+')
+                                        echo 'selected'; ?>>B+</option>
+                                    <option value="B-" <?php if (($patient['blood_group'] ?? '') == 'B-')
+                                        echo 'selected'; ?>>B-</option>
+                                    <option value="O+" <?php if (($patient['blood_group'] ?? '') == 'O+')
+                                        echo 'selected'; ?>>O+</option>
+                                    <option value="O-" <?php if (($patient['blood_group'] ?? '') == 'O-')
+                                        echo 'selected'; ?>>O-</option>
+                                    <option value="AB+" <?php if (($patient['blood_group'] ?? '') == 'AB+')
+                                        echo 'selected'; ?>>AB+</option>
+                                    <option value="AB-" <?php if (($patient['blood_group'] ?? '') == 'AB-')
+                                        echo 'selected'; ?>>AB-</option>
                                 </select>
                             </div>
                             <div class="form-group">
                                 <label>Height (cm)</label>
-                                <input type="number" name="height" value="<?php echo htmlspecialchars($patient['height'] ?? ''); ?>">
+                                <div class="input-with-icon">
+                                    <i class="ri-ruler-2-line"></i>
+                                    <input type="number" name="height"
+                                        value="<?php echo htmlspecialchars($patient['height'] ?? ''); ?>">
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label>Weight (kg)</label>
-                                <input type="number" name="weight" value="<?php echo htmlspecialchars($patient['weight'] ?? ''); ?>">
+                                <div class="input-with-icon">
+                                    <i class="ri-scales-3-line"></i>
+                                    <input type="number" name="weight"
+                                        value="<?php echo htmlspecialchars($patient['weight'] ?? ''); ?>">
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Contact Info (Address) -->
-                    <div class="form-section">
-                        <h3>Address Details</h3>
+                    <div class="profile-form-card">
+                        <div class="card-title">
+                            <i class="ri-map-pin-line"></i> Address Details
+                        </div>
                         <div class="form-group">
                             <label>Address</label>
-                            <input type="text" name="address" value="<?php echo htmlspecialchars($patient['address'] ?? ''); ?>">
+                            <div class="input-with-icon">
+                                <i class="ri-community-line"></i>
+                                <input type="text" name="address"
+                                    value="<?php echo htmlspecialchars($patient['address'] ?? ''); ?>"
+                                    placeholder="Enter complete address">
+                            </div>
                         </div>
-                        <div class="grid-2">
+                        <div class="grid-3">
                             <div class="form-group">
                                 <label>City</label>
-                                <input type="text" name="city" value="<?php echo htmlspecialchars($patient['city'] ?? ''); ?>">
+                                <div class="input-with-icon">
+                                    <i class="ri-building-line"></i>
+                                    <input type="text" name="city"
+                                        value="<?php echo htmlspecialchars($patient['city'] ?? ''); ?>">
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label>State</label>
-                                <input type="text" name="state" value="<?php echo htmlspecialchars($patient['state'] ?? ''); ?>">
+                                <div class="input-with-icon">
+                                    <i class="ri-map-2-line"></i>
+                                    <input type="text" name="state"
+                                        value="<?php echo htmlspecialchars($patient['state'] ?? ''); ?>">
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label>Postal Code</label>
-                                <input type="text" name="postal_code" value="<?php echo htmlspecialchars($patient['postal_code'] ?? ''); ?>">
+                                <div class="input-with-icon">
+                                    <i class="ri-hashtag"></i>
+                                    <input type="text" name="postal_code"
+                                        value="<?php echo htmlspecialchars($patient['postal_code'] ?? ''); ?>">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1058,47 +1385,135 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
                         <div class="grid-2">
                             <div class="form-group">
                                 <label>Email</label>
-                                <input type="text" value="<?php echo htmlspecialchars($patient['email'] ?? ''); ?>" disabled style="background: #e5e7eb; cursor: not-allowed;">
+                                <input type="text" value="<?php echo htmlspecialchars($patient['email'] ?? ''); ?>"
+                                    disabled style="background: #e5e7eb; cursor: not-allowed;">
                             </div>
                             <div class="form-group">
                                 <label>Phone</label>
-                                <input type="text" value="<?php echo htmlspecialchars($patient['phone_number'] ?? ''); ?>" disabled style="background: #e5e7eb; cursor: not-allowed;">
+                                <input type="text"
+                                    value="<?php echo htmlspecialchars($patient['phone_number'] ?? ''); ?>" disabled
+                                    style="background: #e5e7eb; cursor: not-allowed;">
                             </div>
                         </div>
-                    </div>
-
                     <!-- Medical & Emergency -->
-                    <div class="form-section">
-                        <h3>Medical & Emergency</h3>
+                    <div class="profile-form-card">
+                        <div class="card-title">
+                            <i class="ri-heart-pulse-line"></i> Medical & Emergency
+                        </div>
                         <div class="form-group">
                             <label>Allergies (Comma separated)</label>
-                            <input type="text" name="allergies" value="<?php echo htmlspecialchars($patient['allergies'] ?? ''); ?>">
+                            <div class="input-with-icon">
+                                <i class="ri-hand-coin-line"></i>
+                                <input type="text" name="allergies"
+                                    value="<?php echo htmlspecialchars($patient['allergies'] ?? ''); ?>"
+                                    placeholder="e.g. Peanuts, Penicillin">
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>Chronic Conditions (Comma separated)</label>
-                            <input type="text" name="chronic_conditions" value="<?php echo htmlspecialchars($patient['chronic_conditions'] ?? ''); ?>">
+                            <div class="input-with-icon">
+                                <i class="ri-pulse-line"></i>
+                                <input type="text" name="chronic_conditions"
+                                    value="<?php echo htmlspecialchars($patient['chronic_conditions'] ?? ''); ?>"
+                                    placeholder="e.g. Diabetes, Hypertension">
+                            </div>
                         </div>
                         <div class="grid-2">
                             <div class="form-group">
                                 <label>Emergency Contact Name</label>
-                                <input type="text" name="emergency_contact_name" value="<?php echo htmlspecialchars($patient['emergency_contact_name'] ?? ''); ?>">
+                                <div class="input-with-icon">
+                                    <i class="ri-user-voice-line"></i>
+                                    <input type="text" name="emergency_contact_name"
+                                        value="<?php echo htmlspecialchars($patient['emergency_contact_name'] ?? ''); ?>">
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label>Emergency Contact Phone</label>
-                                <input type="text" name="emergency_contact_phone" value="<?php echo htmlspecialchars($patient['emergency_contact_phone'] ?? ''); ?>">
+                                <div class="input-with-icon">
+                                    <i class="ri-phone-fill"></i>
+                                    <input type="text" name="emergency_contact_phone"
+                                        value="<?php echo htmlspecialchars($patient['emergency_contact_phone'] ?? ''); ?>">
+                                </div>
                             </div>
                         </div>
                     </div>
-                
+
+                    <!-- New Document Uploads Section (Moved under Update Profile) -->
+                    <div class="profile-form-card">
+                        <div class="card-title">
+                            <i class="ri-upload-cloud-2-line"></i> Document Uploads
+                        </div>
+                        <div id="upload-docs-section">
+                            <!-- Medical Reports Category -->
+                            <div class="category-card" style="margin-bottom: 1.5rem; border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem;">
+                                <div class="category-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.75rem; margin-bottom: 1.25rem;">
+                                    <div class="cat-title-wrapper" style="display: flex; align-items: center; gap: 0.75rem; color: #1e40af;">
+                                        <i class="ri-clipboard-line" style="font-size: 1.35rem;"></i>
+                                        <h3 style="font-size: 1.15rem; font-weight: 700; margin: 0;">Medical Reports</h3>
+                                    </div>
+                                    <div class="cat-counter-wrapper" style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <span style="color: #64748b; font-size: 0.85rem;">Count:</span>
+                                        <input type="number" id="medical_reports-count" value="0" min="0" max="10" 
+                                            style="width: 55px; padding: 0.35rem; border: 1px solid #cbd5e1; border-radius: 6px; text-align: center; font-weight: 700;" 
+                                            oninput="updateCatInputs('medical_reports')">
+                                    </div>
+                                </div>
+                                <div id="medical_reports-container" class="cat-items-list" style="display: flex; flex-direction: column; gap: 1rem;"></div>
+                            </div>
+
+                            <!-- Medical Scans Category -->
+                            <div class="category-card" style="margin-bottom: 1.5rem; border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem;">
+                                <div class="category-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.75rem; margin-bottom: 1.25rem;">
+                                    <div class="cat-title-wrapper" style="display: flex; align-items: center; gap: 0.75rem; color: #1e40af;">
+                                        <i class="ri-focus-2-line" style="font-size: 1.35rem;"></i>
+                                        <h3 style="font-size: 1.15rem; font-weight: 700; margin: 0;">Medical Scans</h3>
+                                    </div>
+                                    <div class="cat-counter-wrapper" style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <span style="color: #64748b; font-size: 0.85rem;">Count:</span>
+                                        <input type="number" id="scans-count" value="0" min="0" max="10" 
+                                            style="width: 55px; padding: 0.35rem; border: 1px solid #cbd5e1; border-radius: 6px; text-align: center; font-weight: 700;" 
+                                            oninput="updateCatInputs('scans')">
+                                    </div>
+                                </div>
+                                <div id="scans-container" class="cat-items-list" style="display: flex; flex-direction: column; gap: 1rem;"></div>
+                            </div>
+
+                            <!-- Prescriptions Category -->
+                            <div class="category-card" style="border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem;">
+                                <div class="category-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.75rem; margin-bottom: 1.25rem;">
+                                    <div class="cat-title-wrapper" style="display: flex; align-items: center; gap: 0.75rem; color: #1e40af;">
+                                        <i class="ri-capsule-line" style="font-size: 1.35rem;"></i>
+                                        <h3 style="font-size: 1.15rem; font-weight: 700; margin: 0;">Prescriptions</h3>
+                                    </div>
+                                    <div class="cat-counter-wrapper" style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <span style="color: #64748b; font-size: 0.85rem;">Count:</span>
+                                        <input type="number" id="prescriptions-count" value="0" min="0" max="10" 
+                                            style="width: 55px; padding: 0.35rem; border: 1px solid #cbd5e1; border-radius: 6px; text-align: center; font-weight: 700;" 
+                                            oninput="updateCatInputs('prescriptions')">
+                                    </div>
+                                </div>
+                                <div id="prescriptions-container" class="cat-items-list" style="display: flex; flex-direction: column; gap: 1rem;"></div>
+                            </div>
+
+                            <div id="upload-status" style="margin-top:1.5rem;font-size:0.9rem;"></div>
+
+                            <div style="margin-top: 1.5rem; text-align: right;">
+                                <button type="button" id="btn-upload-docs" class="btn-save" style="background:#059669; padding: 0.75rem 1.5rem; font-size: 0.95rem;" onclick="uploadDocuments()">
+                                    <i class="ri-upload-cloud-line"></i> Upload New Documents
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-actions">
-                        <button type="submit" class="btn-save">Save Changes</button>
+                        <button type="submit" class="btn-save">Save Profile Changes</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- Styles for Modal -->
+    <!-- Styles for Modal + Upload Documents -->
     <style>
         .btn-update {
             padding: 0.75rem 1.5rem;
@@ -1113,6 +1528,7 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
             gap: 0.5rem;
             transition: var(--transition);
         }
+
         .btn-update:hover {
             background-color: var(--primary-hover);
         }
@@ -1123,7 +1539,7 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.5);
             display: none;
             justify-content: center;
             align-items: center;
@@ -1144,8 +1560,15 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
         }
 
         @keyframes slideUp {
-            from { transform: translateY(20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
         }
 
         .modal-header {
@@ -1172,6 +1595,7 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
         .modal-body {
             padding: 2rem;
             overflow-y: auto;
+            background: #fbfbfc;
         }
 
         .form-section {
@@ -1203,7 +1627,8 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
             font-size: 0.9rem;
         }
 
-        .form-group input, .form-group select {
+        .form-group input,
+        .form-group select {
             width: 100%;
             padding: 0.75rem;
             border: 1px solid var(--border-color);
@@ -1228,6 +1653,408 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
             border-radius: 8px;
             font-weight: 600;
             cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: var(--transition);
+        }
+
+        .btn-save:hover {
+            filter: brightness(1.1);
+        }
+
+        /* ---- Upload Documents UI ---- */
+        .upload-category {
+            margin-bottom: 1.5rem;
+        }
+
+        .upload-category-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text-dark);
+            margin-bottom: 0.6rem;
+        }
+
+        .upload-drop-zone {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem 1rem;
+            cursor: pointer;
+            background: #F8FAFC;
+            transition: all 0.2s ease;
+            text-align: center;
+            position: relative;
+        }
+
+        .upload-drop-zone:hover,
+        .upload-drop-zone.dragover {
+            border-color: var(--primary-color);
+            background: var(--secondary-color);
+        }
+
+        .upload-icon {
+            font-size: 2rem;
+            color: var(--primary-color);
+        }
+
+        .upload-label {
+            font-weight: 600;
+            color: var(--text-dark);
+            font-size: 0.9rem;
+        }
+
+        .upload-hint {
+            font-size: 0.8rem;
+            color: var(--text-light);
+        }
+
+        .upload-input {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+
+        .file-preview-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.6rem;
+        }
+
+        .file-preview-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            background: #EFF6FF;
+            border: 1px solid #BFDBFE;
+            border-radius: 20px;
+            padding: 0.3rem 0.8rem;
+            font-size: 0.82rem;
+            color: #1D4ED8;
+            font-weight: 500;
+        }
+
+        .file-preview-chip i {
+            font-size: 0.9rem;
+        }
+
+        .file-preview-chip .rm-file {
+            cursor: pointer;
+            color: #9CA3AF;
+            margin-left: 2px;
+            font-size: 0.9rem;
+        }
+
+        .file-preview-chip .rm-file:hover {
+            color: #EF4444;
+        }
+
+        /* ---- New Profile Form Card Styles ---- */
+        .profile-form-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid var(--border-color);
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+        }
+
+        .profile-form-card .card-title {
+            margin-bottom: 1.25rem;
+            padding-bottom: 0.75rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-light);
+            margin-bottom: 0.5rem;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            color: var(--text-dark);
+            background: #fff;
+            transition: var(--transition);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+            outline: none;
+        }
+
+        .input-with-icon {
+            position: relative;
+        }
+
+        .input-with-icon i {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-light);
+            font-size: 1.1rem;
+        }
+
+        .input-with-icon input {
+            padding-left: 2.75rem !important;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+
+        @media (max-width: 600px) {
+
+            .grid-2,
+            .grid-3 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        #upload-status.success {
+            color: #059669;
+            font-weight: 600;
+        }
+
+        #upload-status.error {
+            color: #DC2626;
+            font-weight: 600;
+        }
+
+        /* ---- Uploaded Docs on Dashboard ---- */
+        .docs-outer-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .docs-category-card {
+            background: var(--white);
+            border-radius: var(--border-radius);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
+            transition: var(--transition);
+        }
+
+        .docs-category-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.06);
+        }
+
+        .docs-cat-header {
+            padding: 0.9rem 1.25rem;
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: var(--text-dark);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .docs-file-list {
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .doc-file-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.65rem 0.75rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            text-decoration: none;
+            color: var(--text-dark);
+            transition: var(--transition);
+            background: #FAFAFA;
+        }
+
+        .doc-file-item:hover {
+            background: var(--secondary-color);
+            border-color: var(--primary-color);
+        }
+
+        .doc-file-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .doc-file-info {
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .doc-file-name {
+            display: block;
+            font-weight: 600;
+            font-size: 0.88rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .doc-file-date {
+            display: block;
+            font-size: 0.78rem;
+            color: var(--text-light);
+        }
+
+        .doc-dl-icon {
+            color: var(--primary-color);
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        /* ---- New Categorical Document Upload UI ---- */
+        .cat-items-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .cat-item-row {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr 1fr 40px;
+            align-items: end;
+            gap: 1.25rem;
+            padding: 1.25rem;
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 12px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .cat-field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .cat-field-group label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #64748b;
+        }
+
+        .cat-field-group input {
+            padding: 0.65rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            background: #ffffff;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .cat-field-group input:focus {
+            border-color: #3b82f6;
+        }
+
+        /* Choose file styling */
+        .file-choose-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 0.35rem 0.5rem;
+            cursor: pointer;
+        }
+
+        .file-choose-wrapper i {
+            color: #64748b;
+            margin-right: 0.5rem;
+        }
+
+        .file-choose-wrapper span {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .real-file-input {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .btn-remove-item {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            font-size: 1.25rem;
+            cursor: pointer;
+            padding: 5px;
+            transition: color 0.2s;
+        }
+
+        .btn-remove-item:hover {
+            color: #ef4444;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 900px) {
+            .cat-item-row {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
         }
     </style>
 
@@ -1242,40 +2069,169 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
             document.body.style.overflow = 'auto';
         }
 
-        document.getElementById('updateProfileForm').addEventListener('submit', function(e) {
+        /* ---- Profile save (JSON, no files) ---- */
+        document.getElementById('updateProfileForm').addEventListener('submit', function (e) {
             e.preventDefault();
-            
-            // Build simple object from form data
             const formData = new FormData(this);
             const data = {};
-            formData.forEach((value, key) => data[key] = value);
-
+            // Only include non-file fields
+            for (let [key, value] of formData.entries()) {
+                if (typeof value === 'string') data[key] = value;
+            }
             fetch('update_patient_profile.php', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             })
-            .then(response => response.json())
-            .then(result => {
-                if(result.success) {
-                    alert('Profile updated successfully!');
-                    window.location.reload(); // Refresh to fetch new data
-                } else {
-                    alert('Error: ' + result.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred while saving.');
-            });
+                .then(r => r.json())
+                .then(result => {
+                    if (result.success) {
+                        alert('Profile updated successfully!');
+                        window.location.reload();
+                    } else {
+                        alert('Error: ' + result.message);
+                    }
+                })
+                .catch(() => alert('An error occurred while saving.'));
         });
 
-        // Close on outside click
-        document.getElementById('updateModal').addEventListener('click', function(e) {
+        /* ---- Categorical Counter & Dynamic Inputs Logic ---- */
+        function updateCatInputs(cat) {
+            const count = parseInt(document.getElementById(cat + '-count').value) || 0;
+            const container = document.getElementById(cat + '-container');
+            const currentItems = container.querySelectorAll('.cat-item-row').length;
+
+            if (count > currentItems) {
+                // Add rows
+                for (let i = currentItems + 1; i <= count; i++) {
+                    const row = document.createElement('div');
+                    row.className = 'cat-item-row';
+                    row.innerHTML = `
+                        <div class="cat-field-group">
+                            <label>Document Title</label>
+                            <input type="text" name="${cat}_title[]" placeholder="e.g. Blood Test Report">
+                        </div>
+                        <div class="cat-field-group">
+                            <label>Date</label>
+                            <input type="date" name="${cat}_date[]">
+                        </div>
+                        <div class="cat-field-group">
+                            <label>File</label>
+                            <div class="file-choose-wrapper">
+                                <i class="ri-upload-2-line"></i>
+                                <span class="file-chosen-name">Choose</span>
+                                <input type="file" name="${cat}[]" class="real-file-input" accept=".pdf,.jpg,.jpeg,.png" onchange="updateFileName(this)">
+                            </div>
+                        </div>
+                        <button type="button" class="btn-remove-item" onclick="removeItem(this, '${cat}')">
+                            <i class="ri-delete-bin-line"></i>
+                        </button>
+                    `;
+                    container.appendChild(row);
+                }
+            } else if (count < currentItems) {
+                // Remove rows from bottom
+                const rows = container.querySelectorAll('.cat-item-row');
+                for (let i = currentItems - 1; i >= count; i--) {
+                    rows[i].remove();
+                }
+            }
+        }
+
+        function updateFileName(input) {
+            const nameSpan = input.parentElement.querySelector('.file-chosen-name');
+            if (input.files.length > 0) {
+                nameSpan.textContent = input.files[0].name;
+            } else {
+                nameSpan.textContent = 'Choose';
+            }
+        }
+
+        function removeItem(btn, cat) {
+            btn.parentElement.remove();
+            const counter = document.getElementById(cat + '-count');
+            counter.value = parseInt(counter.value) - 1;
+        }
+
+        /* Initialize categories (start with 0 or 1 as needed) */
+        document.addEventListener('DOMContentLoaded', () => {
+            // Defaulting to 1 for better visibility if desired, but 0 matches "initial count" requirement
+            // updateCatInputs('medical_reports');
+            // updateCatInputs('scans');
+            // updateCatInputs('prescriptions');
+        });
+
+        /* ---- Upload Documents (multipart) ---- */
+        function uploadDocuments() {
+            const fd = new FormData();
+            let hasFiles = false;
+
+            const categories = ['prescriptions', 'medical_reports', 'scans'];
+
+            categories.forEach(cat => {
+                const files = document.querySelectorAll(`input[name="${cat}[]"]`);
+                const titles = document.querySelectorAll(`input[name="${cat}_title[]"]`);
+                const dates = document.querySelectorAll(`input[name="${cat}_date[]"]`);
+
+                files.forEach((input, index) => {
+                    if (input.files.length > 0) {
+                        fd.append(`${cat}[]`, input.files[0]);
+                        fd.append(`${cat}_title[]`, titles[index].value || '');
+                        fd.append(`${cat}_date[]`, dates[index].value || '');
+                        hasFiles = true;
+                    }
+                });
+            });
+
+            if (!hasFiles) {
+                showUploadStatus('Please select at least one file to upload.', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('btn-upload-docs');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ri-loader-4-line"></i> Uploading...';
+            showUploadStatus('Uploading files, please wait...', '');
+
+            fetch('patients.php', {
+                method: 'POST',
+                body: fd
+            })
+                .then(r => r.json())
+                .then(res => {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="ri-upload-cloud-line"></i> Upload Documents';
+                    if (res.success) {
+                        showUploadStatus('✔ ' + res.message, 'success');
+                        // Reset form
+                        categories.forEach(cat => {
+                            document.getElementById(cat + '-count').value = 0;
+                            updateCatInputs(cat);
+                        });
+                        // Reload to show new docs after a short delay
+                        setTimeout(() => window.location.reload(), 1500);
+                    } else {
+                        showUploadStatus('✖ ' + res.message, 'error');
+                    }
+                })
+                .catch(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="ri-upload-cloud-line"></i> Upload Documents';
+                    showUploadStatus('An error occurred during upload.', 'error');
+                });
+        }
+
+        function showUploadStatus(msg, type) {
+            const el = document.getElementById('upload-status');
+            el.textContent = msg;
+            el.className = type;
+        }
+
+        /* Close on outside click */
+        document.getElementById('updateModal').addEventListener('click', function (e) {
             if (e.target === this) closeUpdateModal();
         });
     </script>
 </body>
+
 </html>
