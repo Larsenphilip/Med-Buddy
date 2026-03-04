@@ -45,8 +45,8 @@ if (!empty($patient['date_of_birth'])) {
 }
 
 // Get First Name for Welcome Message
-$fullName = $patient['full_name'];
-$firstName = explode(' ', $fullName)[0];
+$fullName = $patient['full_name'] ?? '';
+$firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
 
 ?>
 <!DOCTYPE html>

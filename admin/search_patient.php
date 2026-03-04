@@ -17,9 +17,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['patient_id'])) {
     $patient_id = trim($_POST['patient_id']);
     
     // Execute the local Python AI script
-    // Using absolute path since generic 'python' command wasn't found in PATH
-    $python_path = "C:\\Users\\LARSEN\\AppData\\Local\\Programs\\Python\\Python312\\python.exe";
-    $command = "\"$python_path\" ai_patient_summary.py " . escapeshellarg($patient_id) . " 2>&1";
+    // Using the virtual environment python to ensure dependencies (mysql-connector-python) are available
+    // and accessible by the generic WAMP user
+    $venv_python = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'venv' . DIRECTORY_SEPARATOR . 'Scripts' . DIRECTORY_SEPARATOR . 'python.exe';
+    
+    // Fallback to absolute path if relative construction fails (common on some configs) or if just easier to read
+    // But dirname(__DIR__) is C:\wamp64\www\Med-Buddy which is correct
+    
+    $script_path = __DIR__ . DIRECTORY_SEPARATOR . "ai_patient_summary.py";
+    $command = "\"$venv_python\" \"$script_path\" " . escapeshellarg($patient_id) . " 2>&1";
     $output = shell_exec($command);
     
     if ($output) {

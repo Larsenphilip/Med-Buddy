@@ -883,11 +883,11 @@ sort($specializations);
             <h2 class="section-title"><?php echo htmlspecialchars($spec); ?></h2>
             <div class="doctors-grid">
                 <?php foreach($doctors as $doc): 
-                    $place = ($doc['work_type'] == 'Clinic') ? $doc['clinic_name'] : $doc['hospital_name'];
+                    $place = ($doc['work_type'] == 'Clinic') ? ($doc['clinic_name'] ?? '') : ($doc['hospital_name'] ?? '');
                     $designation = ($doc['work_type'] == 'Clinic') ? 'General Practitioner' : ($doc['designation'] ?? 'Consultant');
                     $image_src = !empty($doc['image_path']) ? $doc['image_path'] : '';
                 ?>
-                <div class="doctor-card" data-hospital="<?php echo htmlspecialchars($place); ?>">
+                <div class="doctor-card" data-hospital="<?php echo htmlspecialchars($place ?? ''); ?>">
                     <div class="card-image-container">
                         <?php if($image_src && file_exists($image_src)): ?>
                             <img src="<?php echo htmlspecialchars($image_src); ?>" alt="Doctor" class="doctor-img">
