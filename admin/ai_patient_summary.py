@@ -42,7 +42,10 @@ class PatientDataManager:
 
             # 2. Fetch Documents
             try:
-                cursor.execute("SELECT image_type, description, taken_at FROM patient_images WHERE patient_id = %s", (patient_id,))
+                cursor.execute("""SELECT image_type, description, file_path, taken_at
+             FROM patient_images
+WHERE patient_id = %s
+""", (patient_id,))
                 images = cursor.fetchall()
             except: images = []
 
@@ -54,10 +57,83 @@ class PatientDataManager:
             for img in images:
                 if isinstance(img['taken_at'], (date, datetime)): img['taken_at'] = str(img['taken_at'])
 
-            return {"personal_details": patient, "uploaded_documents": images}
+            documents = []
+
+            for img in images:
+                doc_type = img.get("image_type", "Document")
+                img_date = img.get("taken_at", "Unknown date")
+                path = img.get("file_path", "")
+
+                if path:
+                    link = f"http://localhost/Med-Buddy/uploads/{path}"
+                else:
+                    link = "No file available"
+                
+                documents.append({
+                    "type": doc_type,
+                    "date": img_date,
+                    "link": link
+                })
+
+            return {
+                "personal_details": patient,
+                "uploaded_documents": documents
+            }
         except: return None
         finally:
             if conn.is_connected(): cursor.close(); conn.close()
+def summarize_reports(text):
+    client = OpenAI(base_url=OLLAMA_API_URL, api_key="ollama")
+
+    prompt = f"""
+Summarize the following laboratory reports for a doctor.
+Highlight abnormal findings only.
+
+{text}
+"""
+
+    response = client.chat.completions.create(
+        model=OLLAMA_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.2,
+    )
+
+    return response.choices[0].message.content
+def summarize_prescriptions(text):
+    client = OpenAI(base_url=OLLAMA_API_URL, api_key="ollama")
+
+    prompt = f"""
+Extract medicines from this prescription.
+
+Return format:
+Medicine | Dose | Frequency
+
+{text}
+"""
+
+    response = client.chat.completions.create(
+        model=OLLAMA_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.2,
+    )
+
+    return response.choices[0].message.content
+def summarize_scans(text):
+    client = OpenAI(base_url=OLLAMA_API_URL, api_key="ollama")
+
+    prompt = f"""
+Summarize this scan report in 2 sentences.
+
+{text}
+"""
+
+    response = client.chat.completions.create(
+        model=OLLAMA_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.2,
+    )
+
+    return response.choices[0].message.content
 
 def generate_ai_summary(patient_data):
     """
@@ -66,10 +142,21 @@ def generate_ai_summary(patient_data):
     client = OpenAI(base_url=OLLAMA_API_URL, api_key="ollama")
     
     system_instruction = """
-    You are a Medical AI. Summarize the patient safely and professionally.
-    Use **Bold** for **Name** and **Blood Group**.
-    List conditions and allergies.
-    """
+You are a hospital AI assistant.
+
+Generate a clinical summary for doctors strictly using the following headings:
+**Patient Information**
+**Medical Conditions**
+**Allergies**
+**Uploaded Medical Records**
+**Risk Notes**
+**Emergency Contact**
+
+When listing 'Uploaded Medical Records', ALWAYS output clickable markdown hyperlinks to the documents.
+Format it EXACTLY like this: - [View Document Type](URL)
+
+Only use the links provided in the data. Do not use '#' for headings, just use bold text. Do not mention dates in the document names. Do not invent information.
+"""
     
     try:
         response = client.chat.completions.create(
@@ -104,40 +191,54 @@ def generate_smart_template_summary(data):
     # Construct the "AI-Like" Narrative
     summary = ""
     
-    # Header Section
-    summary += f"### Clinical Summary for **{p.get('name', 'Patient')}**\n\n"
-    summary += f"The patient is a **{age}** old individual with blood group **{p.get('blood_group', 'Unknown')}**.\n"
+    # 1. Patient Information
+    summary += "**Patient Information**\n"
+    summary += f"- **Name:** {p.get('full_name', 'N/A')}\n"
+    summary += f"- **Age:** {age}\n"
+    summary += f"- **Gender:** {p.get('gender', 'N/A')}\n"
+    summary += f"- **Blood Group:** {p.get('blood_group', 'N/A')}\n"
+    summary += f"- **Height:** {p.get('height', 'N/A')} cm\n"
+    summary += f"- **Weight:** {p.get('weight', 'N/A')} kg\n"
+    summary += f"- **Contact:** {p.get('phone_number', 'N/A')}\n\n"
     
-    # Medical Profile
+    # 2. Medical Conditions
+    summary += "**Medical Conditions**\n"
     conditions = p.get('chronic_conditions', 'None reported')
-    if not conditions or conditions.lower() == 'none':
-        summary += "There are no known chronic conditions on record. "
-    else:
-        summary += f"The patient has a history of **{conditions}**. "
+    summary += f"{conditions}\n\n"
         
+    # 3. Allergies
+    summary += "**Allergies**\n"
     allergies = p.get('allergies', 'None')
-    if not allergies or allergies.lower() == 'none':
-        summary += "No known allergies are listed.\n\n"
-    else:
-        summary += f"Notable allergies include: {allergies}.\n\n"
+    summary += f"{allergies}\n\n"
 
-    # Contact Info
-    summary += f"**Contact Information:**\n"
-    summary += f"- Phone: {p.get('phone_number', 'N/A')}\n"
-    summary += f"- Email: {p.get('email', 'N/A')}\n\n"
-
-    # Documents Section
-    summary += "**Uploaded Medical Records:**\n"
+    # 4. Uploaded Medical Records
+    summary += "**Uploaded Medical Records**\n"
     if docs:
-        summary += f"The patient has {len(docs)} document(s) available for review:\n"
         for d in docs:
-            date_str = d.get('taken_at', 'Date unknown')
-            desc = d.get('image_type', 'Document')
-            summary += f"- {desc} (Uploaded: {date_str})\n"
+            desc = d.get('type', 'Document')
+            link = d.get('link', '#')
+            summary += f"- [View {desc}]({link})\n"
     else:
-        summary += "No medical documents or imaging have been uploaded to the system yet.\n"
+        summary += "No medical documents or imaging uploaded.\n"
 
-    summary += "\n_Generated by Med-Buddy Intelligence System_"
+    # 5. Risk Notes
+    summary += "\n**Risk Notes**\n"
+    # Basic rule-based risk induction
+    if 'Diabetes' in str(conditions) or 'Hypertension' in str(conditions):
+        summary += "- High cardiovascular risk profile.\n"
+    elif 'Asthma' in str(conditions):
+        summary += "- Respiratory monitoring advised.\n"
+    else:
+        summary += "- No immediate critical risks identified from record.\n"
+
+    # 6. Emergency Contact
+    summary += "\n**Emergency Contact**\n"
+    e_name = p.get('emergency_contact_name', 'N/A')
+    e_phone = p.get('emergency_contact_phone', 'N/A')
+    summary += f"- **Name:** {e_name}\n"
+    summary += f"- **Phone:** {e_phone}\n"
+
+    summary += "\n\n_Generated by Med-Buddy Intelligence System_"
     return summary
 
 # --- MAIN EXECUTION ---

@@ -39,7 +39,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['patient_id'])) {
         // 3. Convert *Italic* to <em>Italic</em>
         $formatted = preg_replace('/\*(.*?)\*/', '<em>$1</em>', $formatted);
         
-        // 4. Convert newlines to <br>
+        // 4. Convert Markdown Links [text](url) to <a href="url">text</a>
+        $formatted = preg_replace('/\[(.*?)\]\((.*?)\)/', '<a href="$2" target="_blank" style="color: var(--primary-color); text-decoration: underline; font-weight: 500;">$1</a>', $formatted);
+        
+        // 5. Convert newlines to <br>
         $formatted = nl2br($formatted);
         
         $search_result = $formatted;
