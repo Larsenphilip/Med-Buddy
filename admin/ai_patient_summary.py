@@ -137,7 +137,7 @@ Summarize this scan report in 2 sentences.
 
 def generate_ai_summary(patient_data):
     """
-    Attempts to use Ollama Local AI.
+    Attempts to use Ollama Local AI with Streaming.
     """
     client = OpenAI(base_url=OLLAMA_API_URL, api_key="ollama")
     
@@ -159,16 +159,27 @@ Only use the links provided in the data. Do not use '#' for headings, just use b
 """
     
     try:
-        response = client.chat.completions.create(
+        stream = client.chat.completions.create(
             model=OLLAMA_MODEL,
             messages=[
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": json.dumps(patient_data)}
             ],
             temperature=0.3,
+            stream=True
         )
-        return response.choices[0].message.content
-    except:
+        
+        full_content = ""
+        for chunk in stream:
+            if chunk.choices[0].delta.content:
+                content = chunk.choices[0].delta.content
+                print(content, end='', flush=True)
+                full_content += content
+        
+        return full_content if full_content else None
+    except Exception as e:
+        # For debugging purposes if needed, though we return None for fallback
+        # sys.stderr.write(f"Streaming error: {str(e)}\n")
         return None  # Return None to trigger fallback
 
 def generate_smart_template_summary(data):
@@ -252,14 +263,13 @@ if __name__ == "__main__":
         raw_data = data_mgr.fetch_raw_patient_data(pid)
         
         if raw_data:
-            # 1. Try Real Local AI
+            # 1. Try Real Local AI (this will print chunks to stdout)
             summary = generate_ai_summary(raw_data)
             
             # 2. If AI failed/offline, use Smart Template
             if not summary:
                 summary = generate_smart_template_summary(raw_data)
-                
-            print(summary)
+                print(summary)
         else:
             print(f"No records found for {pid}")
             

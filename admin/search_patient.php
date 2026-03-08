@@ -10,46 +10,6 @@ if (!isset($_SESSION['doctor_id'])) {
 include '../db_config.php';
 $doctor_id = $_SESSION['doctor_id'];
 $doctor_name = $_SESSION['doctor_name'];
-
-// AI Model Integration Logic
-$search_result = null;
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['patient_id'])) {
-    $patient_id = trim($_POST['patient_id']);
-    
-    // Execute the local Python AI script
-    // Using the virtual environment python to ensure dependencies (mysql-connector-python) are available
-    // and accessible by the generic WAMP user
-    $venv_python = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'venv' . DIRECTORY_SEPARATOR . 'Scripts' . DIRECTORY_SEPARATOR . 'python.exe';
-    
-    // Fallback to absolute path if relative construction fails (common on some configs) or if just easier to read
-    // But dirname(__DIR__) is C:\wamp64\www\Med-Buddy which is correct
-    
-    $script_path = __DIR__ . DIRECTORY_SEPARATOR . "ai_patient_summary.py";
-    $command = "\"$venv_python\" \"$script_path\" " . escapeshellarg($patient_id) . " 2>&1";
-    $output = shell_exec($command);
-    
-    if ($output) {
-        // Basic Markdown to HTML conversion for rendering
-        // 1. Escape HTML to prevent XSS
-        $safe_output = htmlspecialchars($output);
-        
-        // 2. Convert **Bold** to <strong>Bold</strong>
-        $formatted = preg_replace('/\*\*(.*?)\*\*/', '<strong style="color: var(--text-dark);">$1</strong>', $safe_output);
-        
-        // 3. Convert *Italic* to <em>Italic</em>
-        $formatted = preg_replace('/\*(.*?)\*/', '<em>$1</em>', $formatted);
-        
-        // 4. Convert Markdown Links [text](url) to <a href="url">text</a>
-        $formatted = preg_replace('/\[(.*?)\]\((.*?)\)/', '<a href="$2" target="_blank" style="color: var(--primary-color); text-decoration: underline; font-weight: 500;">$1</a>', $formatted);
-        
-        // 5. Convert newlines to <br>
-        $formatted = nl2br($formatted);
-        
-        $search_result = $formatted;
-    } else {
-        $search_result = "Error: No response from the AI system. Please ensure the Python script is executable and Ollama is running.";
-    }
-}
 ?>
 
 <!DOCTYPE html>
@@ -181,10 +141,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['patient_id'])) {
             font-weight: 600;
             cursor: pointer;
             transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .btn-search:hover {
             background-color: #0052a3;
+        }
+
+        .btn-search:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
         }
 
         /* AI Summary Placeholder */
@@ -199,11 +167,42 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['patient_id'])) {
 
         .result-content {
             text-align: left;
-            padding: 1rem;
+            padding: 1.5rem;
             background: #f0f9ff;
             border: 1px solid #bae6fd;
             border-radius: 6px;
             color: #0c4a6e;
+            display: none;
+            white-space: pre-wrap;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .result-content h3 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            color: #0369a1;
+            border-bottom: 1px solid #bae6fd;
+            padding-bottom: 0.5rem;
+        }
+
+        #summary-text {
+            color: #1e293b;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -229,27 +228,105 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['patient_id'])) {
                     <p style="color: #666;">Enter a Patient ID to generate an AI-powered summary of their medical history.</p>
                 </div>
 
-                <form method="POST" class="search-box">
-                    <input type="text" name="patient_id" class="search-input" placeholder="Enter Patient ID (e.g., PAT-2023-001)" required>
-                    <button type="submit" class="btn-search">Search & Analyze</button>
+                <form id="searchForm" class="search-box">
+                    <input type="text" id="patient_id" name="patient_id" class="search-input" placeholder="Enter Patient ID (e.g., PAT-2023-001)" required>
+                    <button type="submit" class="btn-search">
+                        <span class="spinner" id="loader"></span>
+                        <span id="btnText">Search & Analyze</span>
+                    </button>
                 </form>
 
-                <?php if ($search_result): ?>
-                    <div class="result-content">
-                        <h3>Analysis Result</h3>
-                        <p><?php echo $search_result; ?></p>
-                    </div>
-                <?php else: ?>
-                    <div class="ai-result-area">
-                        <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-bottom: 1rem; color: #9ca3af;">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
-                        </svg>
-                        <p>Patient data and AI summary will appear here after search.</p>
-                    </div>
-                <?php endif; ?>
+                <div id="resultContent" class="result-content">
+                    <h3>Analysis Result</h3>
+                    <div id="summary-text"></div>
+                </div>
+
+                <div id="placeholderArea" class="ai-result-area">
+                    <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-bottom: 1rem; color: #9ca3af;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                    </svg>
+                    <p>Patient data and AI summary will appear here after search.</p>
+                </div>
             </div>
         </div>
     </div>
 
+    <script>
+        const searchForm = document.getElementById('searchForm');
+        const resultContent = document.getElementById('resultContent');
+        const placeholderArea = document.getElementById('placeholderArea');
+        const summaryText = document.getElementById('summary-text');
+        const loader = document.getElementById('loader');
+        const btnText = document.getElementById('btnText');
+        const searchBtn = searchForm.querySelector('button');
+
+        function formatMarkdown(text) {
+            // Escape HTML
+            let html = text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+
+            // Bold **text**
+            html = html.replace(/\*\*(.*?)\*\*/g, '<strong style="color: #1F2937;">$1</strong>');
+            
+            // Italic *text*
+            html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+            
+            // Links [text](url)
+            html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" style="color: #0066CC; text-decoration: underline; font-weight: 500;">$1</a>');
+            
+            // Newlines
+            html = html.replace(/\n/g, '<br>');
+            
+            return html;
+        }
+
+        searchForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const patientId = document.getElementById('patient_id').value;
+            
+            // Reset UI
+            summaryText.innerHTML = '';
+            placeholderArea.style.display = 'none';
+            resultContent.style.display = 'block';
+            loader.style.display = 'block';
+            btnText.textContent = 'Analyzing...';
+            searchBtn.disabled = true;
+
+            let fullText = '';
+
+            try {
+                const response = await fetch(`generate_stream.php?patient_id=${encodeURIComponent(patientId)}`);
+                
+                if (!response.ok) throw new Error('Failed to connect to AI system');
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    
+                    const chunk = decoder.decode(value, { stream: true });
+                    fullText += chunk;
+                    
+                    // Update UI as text arrives
+                    summaryText.innerHTML = formatMarkdown(fullText);
+                    
+                    // Auto-scroll to bottom of card if needed
+                    resultContent.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }
+            } catch (error) {
+                summaryText.innerHTML = `<span style="color: #ef4444;">Error: ${error.message}</span>`;
+            } finally {
+                loader.style.display = 'none';
+                btnText.textContent = 'Search & Analyze';
+                searchBtn.disabled = false;
+            }
+        });
+    </script>
 </body>
 </html>
