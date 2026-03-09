@@ -276,13 +276,75 @@ $doctor_name = $_SESSION['doctor_name'];
             html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
             
             // Links [text](url)
-            html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" style="color: #0066CC; text-decoration: underline; font-weight: 500;">$1</a>');
+            html = html.replace(/\[(.*?)\]\((.*?)\)/g, (match, text, url) => {
+                let reportLink = `<a href="${url}" target="_blank" style="color: #0066CC; text-decoration: underline; font-weight: 500;">${text}</a>`;
+                
+                // If it's a medical report, add a summarize button
+                if (text.toLowerCase().includes('report')) {
+                    // Extract the relative path from the URL
+                    // Example URL: http://localhost/Med-Buddy/uploads/reports/48.jpg
+                    let filePath = url.split('/uploads/')[1] || '';
+                    if (filePath) {
+                        return `${reportLink}<br><button class="btn-summarize-report" data-path="${filePath}" style="margin-top: 5px; background: #0066CC; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">Summarize Report</button><div class="report-summary-box" id="summary-${filePath.replace(/[^a-zA-Z0-9]/g, '_')}" style="margin-top: 8px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; display: none; font-size: 0.85rem; color: #334155;"></div>`;
+                    }
+                }
+                return reportLink;
+            });
             
             // Newlines
             html = html.replace(/\n/g, '<br>');
             
             return html;
         }
+
+        // Global handler for summarize buttons (using delegation)
+        document.addEventListener('click', async (e) => {
+            if (e.target && e.target.classList.contains('btn-summarize-report')) {
+                const btn = e.target;
+                const path = btn.getAttribute('data-path');
+                const summaryId = `summary-${path.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                const summaryBox = document.getElementById(summaryId);
+                
+                if (summaryBox.style.display === 'block') {
+                    summaryBox.style.display = 'none';
+                    btn.textContent = 'Summarize Report';
+                    return;
+                }
+
+                // Show loading state
+                btn.disabled = true;
+                btn.textContent = 'Summarizing...';
+                summaryBox.innerHTML = '<em>Analyzing report...</em>';
+                summaryBox.style.display = 'block';
+
+                let fullText = '';
+                try {
+                    const response = await fetch(`summarize_report_action.php?file_path=${encodeURIComponent(path)}`);
+                    if (!response.ok) throw new Error('Failed to connect to summarization service');
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+
+                    summaryBox.innerHTML = ''; // Clear loading text
+
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        
+                        const chunk = decoder.decode(value, { stream: true });
+                        fullText += chunk;
+                        
+                        // Update box as text arrives, simple formatting for bullets
+                        summaryBox.innerHTML = fullText.replace(/\n/g, '<br>').replace(/\* /g, '• ');
+                    }
+                } catch (error) {
+                    summaryBox.innerHTML = `<span style="color: #ef4444;">Error: ${error.message}</span>`;
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'Hide Summary';
+                }
+            }
+        });
 
         searchForm.addEventListener('submit', async (e) => {
             e.preventDefault();

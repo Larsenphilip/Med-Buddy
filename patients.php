@@ -804,6 +804,81 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
 </head>
 
 <body>
+    <!-- QR Code Modal -->
+    <div id="qrModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 2rem; border-radius: 12px; text-align: center; position: relative; max-width: 400px; width: 90%; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+            <button onclick="closeQRModal()" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #666;">&times;</button>
+            <h3 style="margin-bottom: 1rem; color: #1f2937; font-weight: 700;">Your Medical QR Code</h3>
+            <p style="font-size: 0.875rem; color: #6b7280; margin-bottom: 1.5rem;">Scan to share Patient ID, blood group, allergies, and emergency contact info.</p>
+            
+            <div id="qrLoading" style="margin: 2rem 0; display: none;">
+                <div style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6; border-radius: 50%; animation: qr-spin 1s linear infinite; margin: 0 auto;"></div>
+                <p style="margin-top: 10px; color: #6b7280;">Generating...</p>
+            </div>
+            
+            <div id="qrImageContainer" style="min-height: 250px; display: flex; align-items: center; justify-content: center;">
+                <img id="qrImage" src="" alt="QR Code" style="display: none; width: 250px; height: 250px; border: 1px solid #e5e7eb; border-radius: 8px;">
+            </div>
+            
+            <button id="downloadQRBtn" style="display: none; margin-top: 1.5rem; width: 100%; padding: 0.75rem; background: #10b981; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; align-items: center; gap: 8px; justify-content: center;">
+                <i class="ri-download-2-line"></i> Download PNG
+            </button>
+
+            <button onclick="closeQRModal()" style="margin-top: 1rem; width: 100%; padding: 0.75rem; background: #ef4444; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">Close</button>
+        </div>
+    </div>
+
+    <script>
+        function closeQRModal() {
+            document.getElementById('qrModal').style.display = 'none';
+        }
+
+        async function generateMyQR(event) {
+            if(event) event.preventDefault();
+            const modal = document.getElementById('qrModal');
+            const loader = document.getElementById('qrLoading');
+            const img = document.getElementById('qrImage');
+            const dlBtn = document.getElementById('downloadQRBtn');
+            const patientId = "<?php echo $patient_id; ?>";
+
+            // Show modal and loader
+            modal.style.display = 'flex';
+            loader.style.display = 'block';
+            img.style.display = 'none';
+            dlBtn.style.display = 'none';
+
+            try {
+                const response = await fetch(`admin/generate_qr_action.php?patient_id=${patientId}`);
+                const data = await response.json();
+
+                loader.style.display = 'none';
+                if (data.success) {
+                    img.src = data.qr_url + '?v=' + Date.now();
+                    img.style.display = 'block';
+                    dlBtn.style.display = 'flex';
+                    dlBtn.onclick = () => {
+                        const a = document.createElement('a');
+                        a.href = data.qr_url;
+                        a.download = `QR_${patientId}.png`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                    };
+                } else {
+                    alert('QR Generation Failed: ' + (data.error || 'Server error'));
+                    modal.style.display = 'none';
+                }
+            } catch (err) {
+                loader.style.display = 'none';
+                alert('Connection Error: ' + err.message);
+                modal.style.display = 'none';
+            }
+        }
+    </script>
+
+    <style>
+        @keyframes qr-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
 
     <!-- Sidebar -->
     <aside class="sidebar">
@@ -825,8 +900,10 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
         <!-- Top Header -->
         <div class="top-bar">
             <div class="top-bar-info">
-                <div class="patient-id">Patient ID: <span><?php echo displayField($patient['patient_id']); ?></span>
-                </div>
+                <div class="patient-id">Patient ID: <span><?php echo htmlspecialchars($patient_id); ?></span></div>
+                <button id="generateQRBtn" onclick="generateMyQR(event)" class="qr-btn" style="background: var(--primary-color); color: white; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                    <i class="ri-qr-code-line"></i> Generate QR Code
+                </button>
                 <div class="user-profile">
                     <span>Welcome, <?php echo displayField($patient['full_name']); ?></span> | <a href="logout.php"
                         onclick="event.preventDefault(); document.cookie = 'PHPSESSID=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'; window.location.href='logout.php';"
@@ -2231,7 +2308,20 @@ $firstName = !empty($fullName) ? explode(' ', $fullName)[0] : 'Patient';
         document.getElementById('updateModal').addEventListener('click', function (e) {
             if (e.target === this) closeUpdateModal();
         });
+
     </script>
+
+
+
+
+
+    <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+
 </body>
 
 </html>
